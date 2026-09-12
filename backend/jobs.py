@@ -9,26 +9,6 @@ from pydantic import BaseModel, Field
 from sklearn.feature_extraction.text import HashingVectorizer
 
 
-def examples():
-    """Deliberately fictional opportunities, visibly labelled in the UI."""
-    rows = [
-        ("Moss", "Creative developer", "Build expressive web experiences with React, Three.js and GLSL. Small design studio. Remote, flexible hours.", "Remote", "$140–170k"),
-        ("Orbital", "Frontend engineer", "Build accessible React and TypeScript interfaces for a space observatory. Remote collaboration and data visualization.", "Remote", "$150–180k"),
-        ("Fieldwork", "Design engineer", "Prototype beautiful interactive products with React, Three.js, design systems and web accessibility.", "Remote", "$145–175k"),
-        ("Kinfolk", "Developer advocate", "Help developers with open source tools, technical writing, talks and community projects. JavaScript and TypeScript.", "Remote", "$130–160k"),
-        ("Form & Function", "Senior product engineer", "Own full stack product features with TypeScript, React, PostgreSQL and user research. Small independent team.", "London · Hybrid", "$160–190k"),
-        ("Canopy", "Climate software engineer", "Build Python data pipelines and map interfaces for forest restoration. Geospatial analysis and remote sensing.", "Remote", "$125–155k"),
-        ("Common Ground", "Open source engineer", "Maintain developer tools in Rust and TypeScript. Collaborate in public, review contributions and build SDKs.", "Remote", "$145–180k"),
-        ("Contour", "Graphics engineer", "Design real time rendering systems with WebGPU, Three.js and shader programming. Interactive data and simulation.", "Berlin · Hybrid", "$145–175k"),
-        ("Loomlight", "Applied AI engineer", "Build LLM agents, retrieval systems and evaluation tools with Python and TypeScript. Human feedback and model observability.", "Remote", "$160–200k"),
-        ("Tideline", "Platform engineer", "Operate Kubernetes clusters, Linux systems, Rust services and observability pipelines. On call rotation.", "New York · On-site", "$170–210k"),
-        ("Elsewhere", "Product designer", "Lead visual design, prototyping and user research for creative tools. Work with engineers on interaction and accessibility.", "Remote", "$135–165k"),
-        ("Daybreak", "Mobile engineer", "Build iOS applications with Swift and SwiftUI. Mobile performance, animation and native accessibility.", "San Francisco · On-site", "$150–190k"),
-    ]
-    return [dict(id=f"example-{i}", company=c, title=t, description=d, location=l,
-                 salary=s, source="example", url=None, similarity=None)
-            for i, (c, t, d, l, s) in enumerate(rows)]
-
 
 def text_of(job):
     return " ".join(str(job.get(k) or "") for k in ("title", "description", "skills", "location", "salary"))
@@ -46,6 +26,11 @@ class SensoryEncoder:
         docs = [text_of(j) + " " + j.get("interpretation", "") for j in jobs]
         self.vectorizer = HashingVectorizer(analyzer="char_wb", ngram_range=(3, 5),
                                            n_features=1024, alternate_sign=False, norm="l2")
+        if not docs:
+            self.matrix = np.zeros((0, 1024))
+            self.codes = np.zeros((0, kc_count), dtype=np.float32)
+            self.coordinates = np.zeros((0, 2))
+            return
         self.matrix = self.vectorizer.transform(docs).toarray()
         rng = np.random.default_rng(112)
         projection = rng.normal(size=(self.matrix.shape[1], kc_count)).astype(np.float32)
@@ -87,11 +72,17 @@ def annotate(jobs, resume, feedback=""):
 
 
 def fetch_resume_jobs(resume):
-    with httpx.Client(timeout=100) as client:
-        response = client.post("https://registry.jsonresume.org/api/v1/jobs",
-                               json={"resume": resume, "top": 40, "days": 90})
-        response.raise_for_status()
-        rows = response.json().get("jobs", [])
+    try:
+        with httpx.Client(timeout=35, headers={"User-Agent": "Mozilla/5.0 Jobfly/1.0"}, follow_redirects=True) as client:
+            response = client.post("https://registry.jsonresume.org/api/v1/jobs",
+                                   json={"resume": resume, "top": 20, "days": 90})
+            response.raise_for_status()
+            rows = response.json().get("jobs", [])
+        rows = [{**j, "id": str(j["id"]), "source": "jsonresume"} for j in rows
+                if j.get("title") and j.get("company") and str(j.get("url", "")).startswith(("https://", "http://"))]
+    except (httpx.HTTPError, ValueError, KeyError):
+        rows = []
     if not rows:
-        raise ValueError("No matches returned. Try an updated resume or import saved jobs.")
-    return [{**j, "id": str(j["id"]), "source": "jsonresume"} for j in rows]
+        from .job_feed import match_public_jobs
+        rows = match_public_jobs(resume)
+    return rows

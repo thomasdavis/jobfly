@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import numpy as np
 from scipy import sparse
 
-from backend.jobs import SensoryEncoder, examples
+from backend.jobs import SensoryEncoder
 from backend.learning import RewardPlasticity
 from backend.storage import Store
 
@@ -51,8 +51,8 @@ def test_restore_reproduces_synapses_and_preference(tmp_path):
 
 
 def test_sensory_identity_survives_corpus_change():
-    jobs = examples()
-    before = SensoryEncoder(jobs[:4], 128)
+    jobs = [{"id": str(i), "title": f"Role {i}", "description": text} for i, text in enumerate(["React web interfaces", "Python data pipelines", "Rust platform services"])]
+    before = SensoryEncoder(jobs[:2], 128)
     after = SensoryEncoder(jobs, 128)
     assert np.array_equal(before.codes[0], after.codes[0])
     assert not np.array_equal(after.codes[0], after.codes[-1])

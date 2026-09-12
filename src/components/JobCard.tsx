@@ -28,9 +28,9 @@ export default function JobCard({
   if (!job)
     return (
       <section className="job-card empty">
-        <p>Let curiosity do the searching.</p>
+        <p>Choose a job to see the details.</p>
         <span>
-          Select a marker or start exploring to meet your first opportunity.
+          Select a job below, or press Start to follow the fly.
         </span>
       </section>
     );
@@ -52,9 +52,7 @@ export default function JobCard({
         <div>
           <span className="company-name">{job.company}</span>
           <span className="job-source">
-            {job.source === "example"
-              ? "Imaginary company · Example job"
-              : "Imported opportunity"}
+            {job.source === "arbeitnow" ? "Arbeitnow" : "JSON Resume"}
           </span>
         </div>
         {state?.marks[job.id] === "liked" && (
@@ -63,7 +61,7 @@ export default function JobCard({
           </span>
         )}
         <span className={`landing-badge ${landed ? "arrived" : ""}`}>
-          {landed ? "Just landed" : "On the radar"}
+          {landed ? "Just landed" : "Selected"}
         </span>
       </div>
       <div className="job-card-body">
@@ -89,13 +87,13 @@ export default function JobCard({
         <div className="feedback-panel">
           <p>
             {landed
-              ? "Something worth landing on?"
-              : "Your fly makes the first move."}
+              ? "Interested?"
+              : "Let the fly check it out."}
           </p>
           <span className="feedback-hint">
             {landed
-              ? "Your feedback teaches its next instinct."
-              : "Guide its attention here, or let it wander."}
+              ? "Like it or pass. The fly learns from your choice."
+              : "Send it here, or let it keep searching."}
           </span>
           {landed ? (
             <>
@@ -107,7 +105,7 @@ export default function JobCard({
                 value={reason}
                 maxLength={2000}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Why? A little context helps. (optional)"
+                placeholder="Add a note (optional)"
               />
               <div className="feedback-actions">
                 <button
@@ -130,7 +128,7 @@ export default function JobCard({
                 disabled={busy}
                 onClick={onDepart}
               >
-                Keep wandering without feedback <MoveRight size={13} />
+                Skip <MoveRight size={13} />
               </button>
             </>
           ) : (
@@ -139,7 +137,7 @@ export default function JobCard({
               disabled={busy || state?.status !== "ready"}
               onClick={onVisit}
             >
-              Catch its attention <MoveRight size={16} />
+              Visit this job <MoveRight size={16} />
             </button>
           )}
           {landed && !state?.learning && (

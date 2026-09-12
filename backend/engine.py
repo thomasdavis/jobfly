@@ -8,7 +8,7 @@ os.environ.setdefault("NUMBA_NUM_THREADS", "4")
 os.environ.setdefault("FLY_DATA", "/mnt/donto-data/donto-resources/research/jobfly-runtime/brain")
 import numpy as np
 from .vendor.fly_ai.fly_brain import FlyBrain
-from .jobs import SensoryEncoder, examples
+from .jobs import SensoryEncoder
 from .learning import RewardPlasticity
 from .storage import Store
 
@@ -22,9 +22,9 @@ class Engine:
         self.revision = 0
         self.brain = None
         self.store = Store(state_directory) if state_directory else Store()
-        self.jobs, self.marks, self.reasons = examples(), {}, {}
+        self.jobs, self.marks, self.reasons = [], {}, {}
         self.resume = None
-        self.source = "example"
+        self.source = "jsonresume"
         self.learning_enabled = True
         self.fly = dict(x=0., z=0., heading=0.)
         self.target = None
@@ -54,7 +54,10 @@ class Engine:
                 self.reasons = saved.get("reasons", {})
                 self.resume = saved.get("resume")
                 self.source = saved.get("source", "example")
-                self.plastic.restore(saved["factors"], saved["updates"])
+                if "factors" in saved:
+                    self.plastic.restore(saved["factors"], saved["updates"])
+                if self.source == "example":
+                    self.jobs, self.resume = [], None
             self._encode()
             self._map()
             # Warm the Numba kernel before announcing ready.
@@ -63,7 +66,7 @@ class Engine:
             while not self.stopped:
                 start = time.perf_counter()
                 with self.lock:
-                    if self.running and self.clients and self.landed is None:
+                    if self.running and self.clients and self.jobs and self.landed is None:
                         self._advance()
                 time.sleep(max(.005, .10 - (time.perf_counter() - start)))
         except Exception as exc:

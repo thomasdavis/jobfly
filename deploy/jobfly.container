@@ -9,6 +9,8 @@ ContainerName=jobfly
 PublishPort=127.0.0.1:8788:8787
 Volume=/mnt/donto-data/donto-resources/research/jobfly-runtime/brain:/brain:ro
 Volume=/mnt/donto-data/donto-resources/research/jobfly-runtime/public-state:/state:rw
+Volume=/etc/donto/openrouter.key:/run/secrets/conversion-key:ro
+Environment=JOBFLY_CONVERSION_KEY_FILE=/run/secrets/conversion-key
 Environment=JOBFLY_HOST=fly.jsonresume.org
 Environment=NUMBA_NUM_THREADS=2
 Environment=OPENBLAS_NUM_THREADS=1

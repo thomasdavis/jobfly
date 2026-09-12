@@ -56,20 +56,20 @@ export default function World({
         <span className="live-dot" />
         <span>
           {state?.landed
-            ? "A discovery. Your turn."
+            ? "Landed. Like it or pass."
             : state?.running
-              ? "Following a little instinct"
-              : "A world of possibilities"}
+              ? "Searching your jobs"
+              : "Ready to explore"}
         </span>
       </div>
       <div className="habitat-caption">
         <span className="habitat-coordinate">
-          HABITAT / {jobs.length.toString().padStart(2, "0")} OPPORTUNITIES
+          JOBS / {jobs.length.toString().padStart(2, "0")} MATCHES
         </span>
         <p>
-          Good things take
+          Real jobs.
           <br />
-          <em>a little wandering.</em>
+          <em>Your next move.</em>
         </p>
       </div>
       <div className="world-controls">
@@ -97,7 +97,7 @@ export default function World({
         </button>
       </div>
       <div className="world-foot">
-        <span>Drag to orbit · Scroll to explore</span>
+        <span>Drag to orbit · Scroll to zoom</span>
         <span className="compass">
           N <span>↑</span>
         </span>

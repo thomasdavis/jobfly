@@ -26,7 +26,7 @@ export function createBrain(canvas: HTMLCanvasElement, data: BrainData) {
     strength = new Float32Array(data.mapped),
     firedAt = new Float32Array(data.mapped);
   firedAt.fill(-100);
-  const palette = ["#827492", "#efbd91", "#bb9ff5", "#a8dfc0"].map(
+  const palette = ["#75688c", "#b66c29", "#7042c3", "#18784f"].map(
     (c) => new THREE.Color(c),
   );
   data.classes.forEach((c, i) => {
@@ -39,13 +39,13 @@ export function createBrain(canvas: HTMLCanvasElement, data: BrainData) {
   const material = new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
-    blending: THREE.AdditiveBlending,
+    blending: THREE.NormalBlending,
     vertexColors: true,
     uniforms: {
       time: { value: 0 },
       pixelRatio: { value: renderer.getPixelRatio() },
     },
-    vertexShader: `attribute float strength; attribute float firedAt; varying vec3 vColor; varying float vAlpha; uniform float time; uniform float pixelRatio; void main(){float fire=exp(-max(0.0,time-firedAt)*4.0);vColor=mix(color,vec3(1.0,.88,.68),fire);vAlpha=strength*.28+fire*.9;vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=(1.15+fire*2.2)*pixelRatio;gl_Position=projectionMatrix*mv;}`,
+    vertexShader: `attribute float strength; attribute float firedAt; varying vec3 vColor; varying float vAlpha; uniform float time; uniform float pixelRatio; void main(){float fire=exp(-max(0.0,time-firedAt)*4.0);vColor=mix(color,vec3(.4,.12,.8),fire);vAlpha=strength*.28+fire*.9;vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=(1.15+fire*2.2)*pixelRatio;gl_Position=projectionMatrix*mv;}`,
     fragmentShader: `varying vec3 vColor; varying float vAlpha; void main(){float d=length(gl_PointCoord-vec2(.5));if(d>.5)discard;gl_FragColor=vec4(vColor,vAlpha*(1.0-smoothstep(.1,.5,d)));}`,
   });
   const points = new THREE.Points(geometry, material);

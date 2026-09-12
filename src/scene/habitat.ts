@@ -20,7 +20,7 @@ export function createHabitat(
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.25;
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2("#211e2b", 0.023);
+  scene.fog = new THREE.FogExp2("#f0f0f5", 0.023);
   const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
   camera.position.set(13, 16, 18);
   const controls = new OrbitControls(camera, canvas);
@@ -30,8 +30,8 @@ export function createHabitat(
   controls.minDistance = 13;
   controls.maxDistance = 34;
   controls.maxPolarAngle = Math.PI * 0.46;
-  scene.add(new THREE.HemisphereLight("#dfd2ff", "#39372c", 2));
-  const sun = new THREE.DirectionalLight("#f0c69e", 3.3);
+  scene.add(new THREE.HemisphereLight("#ffffff", "#b4b5a2", 2));
+  const sun = new THREE.DirectionalLight("#fff3dc", 3.3);
   sun.position.set(-6, 12, 5);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -41,19 +41,19 @@ export function createHabitat(
   sun.shadow.camera.bottom = -11;
   sun.shadow.normalBias = 0.04;
   scene.add(sun);
-  const rim = new THREE.DirectionalLight("#a498ff", 2.4);
+  const rim = new THREE.DirectionalLight("#d5d9ff", 2.4);
   rim.position.set(7, 6, -8);
   scene.add(rim);
   const ground = new THREE.Mesh(
     new THREE.CylinderGeometry(8.8, 8.1, 0.8, 96),
-    new THREE.MeshStandardMaterial({ color: "#55534c", roughness: 0.95 }),
+    new THREE.MeshStandardMaterial({ color: "#c7cbb4", roughness: 0.95 }),
   );
   ground.position.y = -0.45;
   ground.receiveShadow = true;
   scene.add(ground);
   const lower = new THREE.Mesh(
     new THREE.CylinderGeometry(8.15, 7.7, 0.3, 96),
-    new THREE.MeshStandardMaterial({ color: "#29232d", roughness: 0.7 }),
+    new THREE.MeshStandardMaterial({ color: "#929c85", roughness: 0.7 }),
   );
   lower.position.y = -1;
   scene.add(lower);
@@ -71,7 +71,7 @@ export function createHabitat(
     dummy = new THREE.Object3D();
   const grass = new THREE.InstancedMesh(
     new THREE.ConeGeometry(0.024, 0.16, 3),
-    new THREE.MeshStandardMaterial({ color: "#a5a589", roughness: 1 }),
+    new THREE.MeshStandardMaterial({ color: "#7e9268", roughness: 1 }),
     1500,
   );
   for (let i = 0; i < 1500; i++) {
@@ -121,7 +121,7 @@ export function createHabitat(
   const halo = new THREE.Mesh(
     new THREE.RingGeometry(0.42, 0.46, 48),
     new THREE.MeshBasicMaterial({
-      color: "#e9c79b",
+      color: "#a86e28",
       side: THREE.DoubleSide,
       transparent: true,
       opacity: 0.8,
@@ -140,7 +140,7 @@ export function createHabitat(
   const trail = new THREE.Line(
     trailGeometry,
     new THREE.LineBasicMaterial({
-      color: "#d8b790",
+      color: "#7754bc",
       transparent: true,
       opacity: 0.44,
     }),

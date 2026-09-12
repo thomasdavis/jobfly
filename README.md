@@ -1,8 +1,8 @@
 # Jobfly
 
-**A little fly. A whole brain. An entirely different job hunt.**
+**Real jobs. Your resume. A fly brain that learns what you like.**
 
-[Explore the habitat →](https://fly.jsonresume.org)
+[Start a session →](https://fly.jsonresume.org)
 
 ![Jobfly's Three.js habitat and live neural HUD](docs/habitat.png)
 
@@ -15,16 +15,14 @@ The habitat and neural HUD are built with **Three.js**. The simulation uses all
 
 ## What you can do
 
-- Watch the fly explore; drag the habitat or brain to orbit, scroll to zoom.
-- Inspect a pile or use the accessible job list. “Catch its attention” supplies
-  a target stimulus; the neural motor signal still steers the fly there.
-- Like or pass **after landing**. Only explicit human feedback supplies reward.
-- Add a reason, review your field notes and export your liked opportunities.
-- Import a JSON Resume to fetch matches from JSON Resume, or import saved jobs.
-- Optionally run an LLM interpreter over the jobs, resume and written feedback.
+- Upload PDF, DOCX, TXT, or JSON Resume, paste JSON, or use Thomas Davis’s published resume.
+- Review and edit the resulting `resume.json`, then download it or start searching.
+- Get a unique `/s/<random-token>` URL that restores your resume, jobs, and learning in another browser.
+- Explore real job listings in Three.js; open the source posting and inspect the brain HUD.
+- Like or pass after landing. The feedback changes existing learning-circuit connections.
+- Keep notes and export liked jobs. No applications are submitted and no employers are contacted.
 
-Bundled companies and jobs are clearly labelled **fictional examples**. Nothing
-applies to a job, contacts an employer or changes your JSON Resume account.
+There are no bundled example jobs and no arbitrary job-import endpoint.
 
 ## Run locally
 
@@ -48,34 +46,46 @@ npm run server      # http://127.0.0.1:8787
 ```
 
 For frontend development, run `npm run dev` alongside the server. Vite uses
-port 5187 and proxies `/api` to 8787. First visit loads the connectome and
+port 5187 and proxies `/api` to 8787. Opening a session loads the connectome and
 compiles the simulation kernel; subsequent steps use the compiled kernel.
 The UI remains available while the brain wakes up. An idle/disconnected
 browser does not advance the simulation.
 
-### Real jobs
+### Real jobs and session links
 
-Choose **Bring your resume → JSON Resume**. This sends the selected resume to
-`https://registry.jsonresume.org/api/v1/jobs` for matching. Local-file import
-does not mean offline matching. No API credential is needed for this endpoint.
+The first screen requires a resume. JSON Resume’s `/api/v1/jobs` is the primary
+matching source. If it fails or returns no usable postings, Jobfly fetches current
+[Arbeitnow listings](https://www.arbeitnow.com/blog/job-board-api), ranks them by
+resume text similarity, and visibly identifies that fallback. The feed is mostly
+European jobs; lexical ranking does not establish eligibility or suitability.
+Every displayed job links back to its source. Availability can change after import.
 
-Alternatively, import an array or `{ "jobs": [...] }` with job objects:
+Session links contain 192-bit random tokens. **Anyone with a link can read the
+resume and update that session.** Keep links private; there is no account login.
+Each session has its own append-only SQLite checkpoints under `JOBFLY_STATE`.
+Responses are not cached, session pages are marked noindex, referrers are suppressed,
+and application access logging is disabled. Server restarts preserve session URLs.
+The home page does not allocate a brain or load Three.js.
 
-```json
-[{"id":"role-123","company":"Company name","title":"Role title",
-  "description":"The actual posting text","location":"Remote",
-  "salary":"As posted","url":"https://example.com/original-posting"}]
-```
+### Document conversion
 
-Your job snapshot, marks, reasons and plasticity checkpoint are stored in a
-private SQLite database under `JOBFLY_STATE`. Browser sessions use signed,
-HttpOnly, SameSite cookies. Keep the cookie to return to your learned fly.
-Clearing cookies creates a new identity; it does not delete existing history.
+PDF text is extracted using pypdf; DOCX uses python-docx, including table text.
+Scanned PDFs without text are rejected with an explanation. Files are limited to
+5 MB, PDFs to 30 pages, and extracted text to 60,000 characters. Original documents
+are processed in memory and not retained. JSON files bypass the model unchanged.
+
+Set `OPENROUTER_API_KEY` or `JOBFLY_CONVERSION_KEY_FILE` for document conversion.
+The OpenAI SDK submits a required Pydantic-validated tool call through OpenRouter,
+using `openrouter/free` by default. Provider price limits are
+pinned to zero, including when `JOBFLY_CONVERSION_MODEL` overrides the model.
+Free-provider capacity varies; errors preserve the local review state and invite retry.
+Two conversions can run at once; public conversion/session creation is rate limited.
+The upload screen discloses the provider. Users review extracted facts before saving.
 
 ### Optional language model
 
 Set `OPENAI_API_KEY` on the server and optionally `JOBFLY_LLM_MODEL` (default
-`gpt-4.1-mini`). The Field notes page then offers **Interpret this habitat**.
+`gpt-4.1-mini`). The Saved jobs page then offers **Compare jobs**.
 This explicit action sends jobs, the imported resume and written feedback to
 the configured model and can incur API charges. Nothing calls an LLM per tick.
 The public deployment leaves this disabled unless deliberately configured.
@@ -135,14 +145,15 @@ quality and generalization need a held-out evaluation against simpler models.
 ```sh
 npm run build
 npm test
-CHROME_PATH=/path/to/chrome node scripts/verify-browser.mjs
+CHROME_PATH=/path/to/chrome node scripts/verify-light.mjs
 ```
 
-Unit tests cover reward specificity, weight bounds/sign preservation, stable
-sensory identity, persisted learning, signed sessions and import validation.
-The browser verifier uses the actual running brain: landing, feedback,
-changed weights, pause, job import, reload and desktop/mobile screenshots.
-It uses an independent session and never uploads a personal resume.
+Unit tests cover reward specificity, bounds/sign preservation, stable sensory
+identity, checkpoints, resume validation, lossless JSON upload, Word table extraction,
+unique URLs, access boundaries, and an empty brain input before setup.
+The browser verifier uses Thomas Davis’s public resume, real jobs, and the actual
+brain, checking landing, feedback, changed weights, reopening in another browser,
+and desktop/mobile layouts. Private test links stay outside the repository.
 
 ## Deployment
 

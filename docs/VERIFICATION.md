@@ -1,3 +1,36 @@
+# Resume-first verification — 2026-09-12
+
+The light interface was checked against the actual CPU brain and real job feed.
+
+- Thomas Davis’s published resume loads into an editable JSON review screen.
+- A new search creates a unique 192-bit session URL and 20 real, source-linked jobs.
+- Local full-flow test: a like changed **7,322 existing KC → MBON edges**.
+- A fresh browser opening the same URL restores the resume, feedback, and learned preference.
+- PDF upload was exercised through the public site: extraction, schema-validated
+  AI conversion, editable review, download as `resume.json`, and a lossless JSON re-upload.
+- Word extraction, including tables, is covered by an automated test.
+- Desktop 1440 px and mobile 390 px have no horizontal overflow or browser page errors.
+- The home page starts no simulation and loads no Three.js bundle.
+- Fifteen tests pass, including access controls, URL uniqueness, input validation,
+  zero-price conversion failover, and the existing neural learning/persistence tests.
+- Production uses the original mounted connectome, isolated SQLite sessions, and
+  a read-only application container. Neither model assets nor personal session data
+  are included in the repository.
+
+JSON Resume’s matching endpoint returned HTTP 500 (`fetch failed`) during this
+run. The application used current Arbeitnow postings, visibly attributed as a
+lexical fallback. Its existing document converter also rejected its generated
+schema; Jobfly uses its own Pydantic tool schema through OpenRouter instead.
+Free provider calls are limited to zero-priced endpoints, bounded to 45 seconds
+per attempt, and retried once. Failed conversion returns a recoverable error.
+
+Artifacts and private session tokens are stored on the mounted research drive,
+not in this repository. `verify-light.mjs`, `verify-upload.mjs`, and
+`verify-persistence.mjs` reproduce the current flows. The historical results below
+refer to the previous example-based version, which is no longer served.
+
+---
+
 # Initial verification — 2026-09-12
 
 The initial public browser test ran against `https://fly.jsonresume.org` with

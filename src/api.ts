@@ -1,6 +1,9 @@
+export const sessionId = /^\/s\/([a-f0-9]{48})\/?$/.exec(location.pathname)?.[1] || "";
+export const endpoint = (path: string) => `/api/${path}${sessionId ? `?session=${sessionId}` : ""}`;
+
 export async function api<T>(path: string, body?: unknown): Promise<T> {
   const response = await fetch(
-    `/api/${path}`,
+    endpoint(path),
     body === undefined
       ? undefined
       : {

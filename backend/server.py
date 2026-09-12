@@ -6,13 +6,14 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .engine import Engine
-from .jobs import annotate, examples, fetch_resume_jobs
+from .jobs import annotate, fetch_resume_jobs
 from .sessions import SessionPool
+from .onboarding import router, session_exists
 
 pool = None
 
@@ -26,6 +27,7 @@ async def lifespan(app):
 
 
 app = FastAPI(title="Jobfly", lifespan=lifespan)
+app.include_router(router)
 
 
 @app.get("/healthz")
@@ -45,12 +47,16 @@ async def local_guard(request: Request, call_next):
         if urlparse(origin).hostname not in allowed:
             return JSONResponse({"detail": "Cross-site actions are not allowed."}, status_code=403)
     if request.url.path.startswith("/api/"):
-        identifier, cookie = pool.identity(request.cookies.get("jobfly_session"))
-        request.state.session_id = identifier
+        token = request.headers.get("X-Session-Id") or request.query_params.get("session")
+        if token and not session_exists(token):
+            return JSONResponse({"detail": "This session link is invalid. Start a new session."}, status_code=404)
+        public = {"/api/thomas", "/api/convert", "/api/sessions"}
+        if not token and request.url.path not in public:
+            return JSONResponse({"detail": "Open a session link or start a new session."}, status_code=401)
+        request.state.session_id = token
         response = await call_next(request)
-        if cookie != request.cookies.get("jobfly_session"):
-            response.set_cookie("jobfly_session", cookie, httponly=True, secure=request.url.scheme == "https", samesite="strict", max_age=31536000)
         response.headers["Cache-Control"] = "no-store"
+        response.headers["Referrer-Policy"] = "no-referrer"
         return response
     return await call_next(request)
 
@@ -110,6 +116,8 @@ def control(body: Control, engine: SessionEngine):
     ready(engine)
     with engine.lock:
         if body.action == "play":
+            if not engine.jobs:
+                raise HTTPException(409, "Add a resume to find jobs first.")
             engine.running = True
         elif body.action == "pause":
             engine.running = False
@@ -167,16 +175,6 @@ def validate_jobs(rows):
     return result
 
 
-@app.post("/api/import")
-def import_jobs(body: ImportData, engine: SessionEngine):
-    ready(engine)
-    try:
-        engine.replace_jobs(validate_jobs(body.jobs), "imported")
-    except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
-    return {"count": len(engine.jobs)}
-
-
 class ResumeData(BaseModel):
     resume: dict
 
@@ -188,17 +186,10 @@ def resume(body: ResumeData, engine: SessionEngine):
         raise HTTPException(400, "Choose a JSON Resume with a basics section.")
     try:
         rows = validate_jobs(fetch_resume_jobs(body.resume))
-        engine.replace_jobs(rows, "jsonresume", body.resume)
+        engine.replace_jobs(rows, rows[0]["source"], body.resume)
         return {"count": len(rows)}
     except Exception as exc:
         raise HTTPException(502, f"Could not load matches: {exc}") from exc
-
-
-@app.post("/api/examples")
-def reset_examples(engine: SessionEngine):
-    ready(engine)
-    engine.replace_jobs(examples(), "example")
-    return {"count": len(engine.jobs)}
 
 
 @app.post("/api/interpret")
@@ -228,8 +219,12 @@ def history(engine: SessionEngine):
 
 dist = Path(__file__).resolve().parents[1] / "dist"
 if dist.exists():
+    @app.get("/s/{identifier}")
+    def session_page(identifier: str):
+        return FileResponse(dist / "index.html", headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex, nofollow"})
+
     app.mount("/", StaticFiles(directory=dist, html=True), name="app")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend.server:app", host=os.getenv("JOBFLY_BIND", "127.0.0.1"), port=8787)
+    uvicorn.run("backend.server:app", host=os.getenv("JOBFLY_BIND", "127.0.0.1"), port=int(os.getenv("JOBFLY_PORT", "8787")), access_log=False)
