@@ -10,6 +10,11 @@ the real MaleCNS CPU simulation and a separate test-only browser identity.
 - Imported a synthetic saved-job JSON file through the actual file picker.
 - Rejected malformed import without replacing the existing habitat.
 - Feedback survived a browser reload.
+- After replacing and restarting the production container, the original signed
+  browser session restored its one lesson, passed mark and **-0.22** preference.
+- A second browser identity saw zero lessons and no marks. Cross-site mutation
+  was rejected with HTTP 403. Production cookies had HttpOnly, Secure and
+  SameSite=Strict flags.
 - Desktop 1440 px and mobile 390 px rendered without horizontal page overflow.
 - Browser page-error list was empty.
 

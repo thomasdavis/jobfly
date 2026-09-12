@@ -4,6 +4,8 @@
 
 [Explore the habitat →](https://fly.jsonresume.org)
 
+![Jobfly's Three.js habitat and live neural HUD](docs/habitat.png)
+
 A fruit fly wanders through a miniature world of job-poop. When it lands,
 you decide whether the opportunity is worth your time. Your feedback changes
 connections in its simulated brain, influencing what it explores next.
