@@ -19,6 +19,20 @@ class PlainText(HTMLParser):
         self.parts.append(data)
 
 
+def plain_description(value):
+    # Some upstream postings contain escaped HTML inside an HTML response.
+    # Parse bounded layers rather than displaying tags or feeding them to the brain.
+    text = str(value or "")
+    for _ in range(3):
+        parser = PlainText()
+        parser.feed(text)
+        clean = " ".join(parser.parts).strip()
+        if clean == text:
+            break
+        text = clean
+    return text[:12000]
+
+
 def match_public_jobs(resume):
     global _cache, _fetched
     with _lock:
@@ -41,10 +55,8 @@ def match_public_jobs(resume):
             for row in records:
                 if not row.get("title") or not row.get("company_name") or not str(row.get("url", "")).startswith("https://"):
                     continue
-                parser = PlainText()
-                parser.feed(row.get("description", ""))
                 jobs.append(dict(id="arbeitnow-" + row["slug"], title=row["title"],
-                                 company=row["company_name"], description=" ".join(parser.parts)[:12000],
+                                 company=row["company_name"], description=plain_description(row.get("description")),
                                  location=row.get("location"), url=row["url"], source="arbeitnow",
                                  postedAt=row.get("created_at"), remote=row.get("remote"),
                                  skills=row.get("tags", [])))

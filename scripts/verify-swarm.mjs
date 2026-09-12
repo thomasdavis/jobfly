@@ -39,6 +39,16 @@ async function until(test, seconds = 360) {
   throw Error("Swarm did not reach the required behavior");
 }
 try {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const health = await fetch(`${base}/healthz`);
+      if (health.ok) break;
+    } catch {
+      /* The container may still be starting. */
+    }
+    if (attempt >= 45) throw Error("Service did not become healthy");
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
   await page.goto(base);
   await page
     .getByRole("heading", { name: "Start with your resume." })
@@ -55,6 +65,7 @@ try {
     mode: 0o600,
   });
   const first = await until((s) => s.status === "ready");
+  console.log("Packaged brain ready; observing autonomous movement");
   assert(first.running);
   assert.equal(first.swarm.length, 24);
   const catalog = await page.evaluate(
@@ -79,6 +90,28 @@ try {
           Math.hypot(f.x - first.swarm[i].x, f.z - first.swarm[i].z) > 0.01,
       ),
   );
+  if (process.env.JOBFLY_WAIT_FOR_DISCOVERIES === "1") {
+    const discovery = await until(
+      (s) => s.ecosystem.recommendations.length > 0,
+      720,
+    );
+    assert.equal(discovery.updates, 0);
+    await fs.writeFile(
+      `${out}/autonomous-discovery.json`,
+      JSON.stringify(
+        {
+          elapsed: discovery.elapsed,
+          explored: discovery.ecosystem.explored,
+          recommendations: discovery.ecosystem.recommendations.length,
+          landings: discovery.landings,
+          ratings: discovery.updates,
+        },
+        null,
+        2,
+      ),
+    );
+    console.log("Suggestions surfaced without feedback");
+  }
   assert(observed.running);
   assert.equal(observed.updates, 0);
   if (observed.elapsed < 120)
@@ -89,6 +122,11 @@ try {
     .getByRole("button", { name: "I like this", exact: true })
     .waitFor();
   const selected = await page.locator(".job-summary h2").innerText();
+  assert(
+    !/<\/?(?:div|p|span|strong)\b/i.test(
+      await page.locator(".job-summary > p").first().innerText(),
+    ),
+  );
   const reply = page.waitForResponse(
     (r) => r.url().includes("/api/feedback") && r.request().method() === "POST",
   );

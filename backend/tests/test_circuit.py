@@ -102,3 +102,10 @@ def test_catalog_checkpoints_reuse_data_and_keep_legacy_history(tmp_path):
     assert store.db.execute("SELECT count(*) FROM objects").fetchone()[0] == 1
     assert store.db.execute("SELECT count(*) FROM snapshots").fetchone()[0] == 4
     store.db.close()
+
+
+def test_nested_html_becomes_readable_text_before_neural_encoding():
+    from backend.job_feed import plain_description
+    assert plain_description("&lt;p&gt;Build &lt;strong&gt;great&lt;/strong&gt; software&lt;/p&gt;") == "Build  great  software"
+    text = "C++ engineering, research & development."
+    assert plain_description(plain_description(text)) == plain_description(text)

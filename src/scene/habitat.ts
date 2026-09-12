@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { flyModel, seeded } from "./objects";
-import { distantSprites } from "./lod";
+import { bakePile, distantSprites } from "./lod";
 import type { Job, State } from "../types";
 
 export function createHabitat(
@@ -114,7 +114,8 @@ export function createHabitat(
   });
   piles.computeBoundingSphere();
   scene.add(piles, rings);
-  const distantJobs = distantSprites(jobs.length),
+  const pileSprite = bakePile(renderer, piles.geometry);
+  const distantJobs = distantSprites(jobs.length, false, pileSprite.texture),
     distantFlies = distantSprites(24, true);
   jobs.forEach((j, i) => {
     distantJobs.geometry.attributes.position.setXYZ(i, j.x, 0.5, j.z);
@@ -428,6 +429,7 @@ export function createHabitat(
         }
       });
       geometries.forEach((g) => g.dispose());
+      pileSprite.dispose();
       materials.forEach((m) => m.dispose());
       renderer.dispose();
     },

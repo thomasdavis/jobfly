@@ -81,6 +81,8 @@ class Engine:
 
     def _encode(self, neural=None):
         neural = neural or {}
+        from .job_feed import plain_description
+        self.jobs = [dict(j, description=plain_description(j.get("description"))) for j in self.jobs]
         self.world_radius = max(8., math.sqrt(len(self.jobs)) * 1.15)
         for i, job in enumerate(self.jobs):
             angle = i * 2.399963

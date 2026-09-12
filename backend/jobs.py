@@ -88,4 +88,6 @@ def fetch_resume_jobs(resume):
     except (httpx.HTTPError, ValueError, KeyError):
         if not rows:
             raise
-    return list({j["url"]: j for j in rows}.values())[:3500]
+    from .job_feed import plain_description
+    return [dict(j, description=plain_description(j.get("description")))
+            for j in list({j["url"]: j for j in rows}.values())[:3500]]
