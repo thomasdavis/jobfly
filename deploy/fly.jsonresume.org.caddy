@@ -1,0 +1,14 @@
+fly.jsonresume.org {
+    encode zstd gzip
+    request_body {
+        max_size 2MB
+    }
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        X-Frame-Options DENY
+    }
+    reverse_proxy 127.0.0.1:8788 {
+        flush_interval -1
+    }
+}
