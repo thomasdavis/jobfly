@@ -12,7 +12,7 @@ from .storage import STATE
 
 
 class SessionPool:
-    def __init__(self, factory, limit=3):
+    def __init__(self, factory, limit=2):
         self.factory, self.limit = factory, limit
         self.lock = threading.Lock()
         self.engines = {}
@@ -49,7 +49,7 @@ class SessionPool:
                         del self.engines[key]
             if identifier not in self.engines:
                 if len(self.engines) >= self.limit:
-                    raise HTTPException(503, "The habitat is busy. Three brains are already exploring; please try again shortly.")
+                    raise HTTPException(503, "The habitat is busy. Its resident brains are already exploring; please try again shortly.")
                 self.engines[identifier] = (self.factory(STATE / identifier), now)
             engine, _ = self.engines[identifier]
             self.engines[identifier] = (engine, now)
@@ -58,3 +58,7 @@ class SessionPool:
     def close(self):
         for engine, _ in self.engines.values():
             engine.stopped = True
+        for engine, _ in self.engines.values():
+            engine.thread.join(timeout=4)
+            if not engine.thread.is_alive():
+                engine.store.db.close()

@@ -55,16 +55,14 @@ export default function World({
       <div className="habitat-heading">
         <span className="live-dot" />
         <span>
-          {state?.landed
-            ? "Landed. Like it or pass."
-            : state?.running
-              ? "Searching your jobs"
-              : "Ready to explore"}
+          {state?.running
+            ? `${state.swarm?.length || 24} flies exploring`
+            : "Swarm paused"}
         </span>
       </div>
       <div className="habitat-caption">
         <span className="habitat-coordinate">
-          JOBS / {jobs.length.toString().padStart(2, "0")} MATCHES
+          JOBS / {jobs.length.toString().padStart(2, "0")} REAL JOBS
         </span>
         <p>
           Real jobs.
@@ -97,7 +95,7 @@ export default function World({
         </button>
       </div>
       <div className="world-foot">
-        <span>Drag to orbit · Scroll to zoom</span>
+        <span>Drag to orbit · Right-drag to pan · Scroll to zoom</span>
         <span className="compass">
           N <span>↑</span>
         </span>

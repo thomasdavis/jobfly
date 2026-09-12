@@ -8,6 +8,10 @@ Image=localhost/jobfly:latest
 ContainerName=jobfly
 PublishPort=127.0.0.1:8788:8787
 Volume=/mnt/donto-data/donto-resources/research/jobfly-runtime/brain:/brain:ro
+Volume=/mnt/donto-data/donto-resources/research/jobfly-runtime/embeddings:/embeddings:ro
+Environment=JOBFLY_EMBED_CACHE=/embeddings
+Environment=HF_HUB_OFFLINE=1
+Environment=JOBFLY_JOB_VECTOR_CACHE=/state/public-job-vectors.sqlite
 Volume=/mnt/donto-data/donto-resources/research/jobfly-runtime/public-state:/state:rw
 Volume=/etc/donto/openrouter.key:/run/secrets/conversion-key:ro
 Environment=JOBFLY_CONVERSION_KEY_FILE=/run/secrets/conversion-key

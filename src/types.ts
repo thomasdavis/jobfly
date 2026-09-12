@@ -33,6 +33,42 @@ export interface State {
   learning: boolean;
   marks: Record<string, string>;
   preferences: Record<string, number>;
+  loadingStage: string;
+  phase: string;
+  intervention: string;
+  activeNeurons: number;
+  decoderSamples: number;
+  swarm: {
+    id: number;
+    x: number;
+    z: number;
+    heading: number;
+    phase: string;
+    target: string | null;
+    attending: string | null;
+    landed: string | null;
+    motor: number[];
+    active: boolean;
+  }[];
+  ecosystem: {
+    explored: number;
+    total: number;
+    settling: boolean;
+    minimumSeconds: number;
+    recommendations: string[];
+    activeFly: number;
+    sharedBrain: boolean;
+    activity: Record<
+      string,
+      {
+        visits: number;
+        flies: number;
+        landings: number;
+        value: number;
+        mature: boolean;
+      }
+    >;
+  } | null;
 }
 export interface BrainData {
   positions: number[];

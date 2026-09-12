@@ -2,7 +2,11 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { BrainData, State } from "../types";
 
-export function createBrain(canvas: HTMLCanvasElement, data: BrainData) {
+export function createBrain(
+  canvas: HTMLCanvasElement,
+  data: BrainData,
+  expanded = false,
+) {
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: true,
@@ -26,9 +30,14 @@ export function createBrain(canvas: HTMLCanvasElement, data: BrainData) {
     strength = new Float32Array(data.mapped),
     firedAt = new Float32Array(data.mapped);
   firedAt.fill(-100);
-  const palette = ["#75688c", "#b66c29", "#7042c3", "#18784f"].map(
-    (c) => new THREE.Color(c),
-  );
+  const palette = [
+    "#75688c",
+    "#b66c29",
+    "#7042c3",
+    "#18784f",
+    "#397499",
+    "#ad4568",
+  ].map((c) => new THREE.Color(c));
   data.classes.forEach((c, i) => {
     colors.set(palette[c].toArray(), i * 3);
     strength[i] = c === 0 ? 0.85 : 1.6;
@@ -36,6 +45,16 @@ export function createBrain(canvas: HTMLCanvasElement, data: BrainData) {
   geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
   geometry.setAttribute("strength", new THREE.BufferAttribute(strength, 1));
   geometry.setAttribute("firedAt", new THREE.BufferAttribute(firedAt, 1));
+  const baseIndices = Array.from(
+    { length: Math.ceil(data.mapped / 6) },
+    (_, i) => i * 6,
+  );
+  const compactIndices = new Uint32Array(baseIndices.length + 3500);
+  if (!expanded) {
+    compactIndices.set(baseIndices);
+    geometry.setIndex(new THREE.BufferAttribute(compactIndices, 1));
+    geometry.setDrawRange(0, baseIndices.length);
+  }
   const material = new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
@@ -59,10 +78,16 @@ export function createBrain(canvas: HTMLCanvasElement, data: BrainData) {
   });
   observer.observe(canvas);
   let frame = 0,
-    lastElapsed = -1;
+    lastElapsed = -1,
+    lastRender = 0;
   function render() {
     frame = requestAnimationFrame(render);
-    if (document.hidden) return;
+    if (
+      document.hidden ||
+      performance.now() - lastRender < (expanded ? 40 : 100)
+    )
+      return;
+    lastRender = performance.now();
     material.uniforms.time.value = performance.now() / 1000;
     controls.update();
     renderer.render(scene, camera);
@@ -76,6 +101,14 @@ export function createBrain(canvas: HTMLCanvasElement, data: BrainData) {
       state.spikes.forEach((i) => {
         if (i < firedAt.length) firedAt[i] = t;
       });
+      if (!expanded) {
+        const visible = state.spikes
+          .filter((i) => i >= 0 && i < data.mapped)
+          .slice(0, 3500);
+        compactIndices.set(visible, baseIndices.length);
+        geometry.index!.needsUpdate = true;
+        geometry.setDrawRange(0, baseIndices.length + visible.length);
+      }
       geometry.attributes.firedAt.needsUpdate = true;
     },
     dispose() {

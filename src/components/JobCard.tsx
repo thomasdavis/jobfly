@@ -1,11 +1,4 @@
-import {
-  ArrowUpRight,
-  Check,
-  Heart,
-  MapPin,
-  MoveRight,
-  ThumbsDown,
-} from "lucide-react";
+import { ArrowUpRight, Check, Heart, MapPin, ThumbsDown } from "lucide-react";
 import { useState } from "react";
 import { display, type Job, type State } from "../types";
 
@@ -14,8 +7,6 @@ export default function JobCard({
   state,
   busy,
   onFeedback,
-  onVisit,
-  onDepart,
 }: {
   job: Job | null;
   state: State | null;
@@ -30,11 +21,11 @@ export default function JobCard({
       <section className="job-card empty">
         <p>Choose a job to see the details.</p>
         <span>
-          Select a job below, or press Start to follow the fly.
+          The swarm keeps exploring. Browse anything that catches your eye.
         </span>
       </section>
     );
-  const landed = state?.landed === job.id;
+  const landed = state?.swarm?.some((f) => f.landed === job.id);
   const href =
     typeof job.url === "string" && /^https?:\/\//i.test(job.url)
       ? job.url
@@ -85,17 +76,11 @@ export default function JobCard({
           )}
         </div>
         <div className="feedback-panel">
-          <p>
-            {landed
-              ? "Interested?"
-              : "Let the fly check it out."}
-          </p>
+          <p>Your call.</p>
           <span className="feedback-hint">
-            {landed
-              ? "Like it or pass. The fly learns from your choice."
-              : "Send it here, or let it keep searching."}
+            Optional feedback. The swarm carries on either way.
           </span>
-          {landed ? (
+          {
             <>
               <label className="sr-only" htmlFor="reason">
                 Optional feedback reason
@@ -123,23 +108,8 @@ export default function JobCard({
                   <Heart size={15} /> I like this
                 </button>
               </div>
-              <button
-                className="text-button"
-                disabled={busy}
-                onClick={onDepart}
-              >
-                Skip <MoveRight size={13} />
-              </button>
             </>
-          ) : (
-            <button
-              className="secondary visit"
-              disabled={busy || state?.status !== "ready"}
-              onClick={onVisit}
-            >
-              Visit this job <MoveRight size={16} />
-            </button>
-          )}
+          }
           {landed && !state?.learning && (
             <span className="feedback-hint">
               Learning is paused. Enable it in the neural panel to teach.

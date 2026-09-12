@@ -34,7 +34,8 @@ app.include_router(router)
 def health():
     model = Path(os.getenv("FLY_DATA", "/mnt/donto-data/donto-resources/research/jobfly-runtime/brain"))
     present = (model / "weights.npz").exists() and (model / "brain.npz").exists()
-    return JSONResponse({"service": "jobfly", "model_files": present}, status_code=200 if present else 503)
+    return JSONResponse({"service": "jobfly", "model_files": present,
+                         "build": os.getenv("JOBFLY_BUILD_SHA", "development"), "policyVersion": 3}, status_code=200 if present else 503)
 
 
 @app.middleware("http")
@@ -109,6 +110,7 @@ async def events(request: Request, engine: SessionEngine):
 class Control(BaseModel):
     action: str
     jobId: str | None = None
+    intervention: str | None = None
 
 
 @app.post("/api/control")
@@ -129,10 +131,12 @@ def control(body: Control, engine: SessionEngine):
             ids = [j["id"] for j in engine.jobs]
             if body.jobId not in ids:
                 raise HTTPException(404, "Job not found.")
-            engine.depart()
-            engine.target = ids.index(body.jobId)
-            engine.plastic.eligibility[:] = 0
-            engine.running = True
+            engine.focus(body.jobId)
+        elif body.action == "intervention":
+            from .circuit import INTERVENTIONS
+            if body.intervention not in INTERVENTIONS:
+                raise HTTPException(400, "Unknown intervention.")
+            engine.policy.intervene(body.intervention)
         else:
             raise HTTPException(400, "Unknown control.")
     return engine.snapshot()

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { flyModel, poopModel, seeded } from "./objects";
+import { flyModel, seeded } from "./objects";
+import { distantSprites } from "./lod";
 import type { Job, State } from "../types";
 
 export function createHabitat(
@@ -9,240 +10,425 @@ export function createHabitat(
   onSelect: (id: string) => void,
   labels: HTMLDivElement,
 ) {
+  const radius = Math.max(8, Math.sqrt(jobs.length) * 1.15);
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: true,
     alpha: true,
   });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.25));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.25;
+  renderer.toneMappingExposure = 1.3;
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2("#f0f0f5", 0.023);
-  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
-  camera.position.set(13, 16, 18);
+  scene.fog = new THREE.Fog("#f1f1ed", radius * 3, radius * 6);
+  const camera = new THREE.PerspectiveCamera(43, 1, 0.1, radius * 8);
   const controls = new OrbitControls(camera, canvas);
-  controls.target.set(0, 0, 0);
   controls.enableDamping = true;
-  controls.enablePan = false;
-  controls.minDistance = 13;
-  controls.maxDistance = 34;
-  controls.maxPolarAngle = Math.PI * 0.46;
-  scene.add(new THREE.HemisphereLight("#ffffff", "#b4b5a2", 2));
-  const sun = new THREE.DirectionalLight("#fff3dc", 3.3);
-  sun.position.set(-6, 12, 5);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -11;
-  sun.shadow.camera.right = 11;
-  sun.shadow.camera.top = 11;
-  sun.shadow.camera.bottom = -11;
-  sun.shadow.normalBias = 0.04;
+  controls.minDistance = 5;
+  controls.maxDistance = radius * 3.8;
+  controls.maxPolarAngle = Math.PI * 0.47;
+  controls.screenSpacePanning = false;
+  function resetCamera() {
+    camera.position.set(radius * 1.05, radius * 1.35, radius * 1.25);
+    controls.target.set(0, 0, 0);
+  }
+  resetCamera();
+  scene.add(new THREE.HemisphereLight("#ffffff", "#a4aa87", 2.5));
+  const sun = new THREE.DirectionalLight("#fff0d8", 3);
+  sun.position.set(-30, 50, 20);
   scene.add(sun);
-  const rim = new THREE.DirectionalLight("#d5d9ff", 2.4);
-  rim.position.set(7, 6, -8);
+  const rim = new THREE.DirectionalLight("#dad8fc", 2);
+  rim.position.set(20, 12, -20);
   scene.add(rim);
   const ground = new THREE.Mesh(
-    new THREE.CylinderGeometry(8.8, 8.1, 0.8, 96),
-    new THREE.MeshStandardMaterial({ color: "#c7cbb4", roughness: 0.95 }),
+    new THREE.CylinderGeometry(radius, radius * 0.99, 1.2, 96),
+    new THREE.MeshLambertMaterial({ color: "#a7b58c" }),
   );
-  ground.position.y = -0.45;
-  ground.receiveShadow = true;
+  ground.position.y = -0.7;
   scene.add(ground);
-  const lower = new THREE.Mesh(
-    new THREE.CylinderGeometry(8.15, 7.7, 0.3, 96),
-    new THREE.MeshStandardMaterial({ color: "#929c85", roughness: 0.7 }),
+  const edge = new THREE.Mesh(
+    new THREE.TorusGeometry(radius * 0.994, 0.05, 5, 128),
+    new THREE.MeshLambertMaterial({ color: "#afb699" }),
   );
-  lower.position.y = -1;
-  scene.add(lower);
-  const rimRing = new THREE.Mesh(
-    new THREE.TorusGeometry(8.65, 0.025, 6, 128),
-    new THREE.MeshStandardMaterial({
-      color: "#aaa18c",
-      metalness: 0.5,
-      roughness: 0.3,
-    }),
-  );
-  rimRing.rotation.x = Math.PI / 2;
-  scene.add(rimRing);
-  const rng = seeded(71),
-    dummy = new THREE.Object3D();
+  edge.rotation.x = Math.PI / 2;
+  edge.position.y = -0.05;
+  scene.add(edge);
+  const dummy = new THREE.Object3D(),
+    rng = seeded(71),
+    color = new THREE.Color();
   const grass = new THREE.InstancedMesh(
-    new THREE.ConeGeometry(0.024, 0.16, 3),
-    new THREE.MeshStandardMaterial({ color: "#7e9268", roughness: 1 }),
-    1500,
+    new THREE.ConeGeometry(0.05, 0.3, 3),
+    new THREE.MeshLambertMaterial({ color: "#82966c" }),
+    4000,
   );
-  for (let i = 0; i < 1500; i++) {
-    const a = rng() * Math.PI * 2,
-      r = Math.sqrt(rng()) * 8.4;
-    dummy.position.set(Math.cos(a) * r, 0.035, Math.sin(a) * r);
-    dummy.rotation.set(rng() * 0.5, rng() * 6.28, rng() * 0.5);
+  for (let i = 0; i < grass.count; i++) {
+    const angle = rng() * Math.PI * 2,
+      r = Math.sqrt(rng()) * radius * 0.98;
+    dummy.position.set(Math.cos(angle) * r, 0.02, Math.sin(angle) * r);
+    dummy.rotation.set(rng() * 0.4, rng() * 6.28, 0);
     dummy.scale.setScalar(0.4 + rng());
     dummy.updateMatrix();
     grass.setMatrixAt(i, dummy.matrix);
   }
   scene.add(grass);
-  const stones = new THREE.InstancedMesh(
-    new THREE.IcosahedronGeometry(0.13, 0),
-    new THREE.MeshStandardMaterial({ color: "#777267", roughness: 1 }),
-    90,
+  // All jobs remain rendered in two GPU instances, without per-job DOM trees.
+  const profile = [
+    [0, 0],
+    [0.39, 0.02],
+    [0.47, 0.15],
+    [0.39, 0.29],
+    [0.26, 0.3],
+    [0.34, 0.42],
+    [0.3, 0.54],
+    [0.16, 0.58],
+    [0.21, 0.68],
+    [0.12, 0.83],
+    [0, 0.99],
+  ].map(([r, y]) => new THREE.Vector2(r, y));
+  const piles = new THREE.InstancedMesh(
+    new THREE.LatheGeometry(profile, 8),
+    new THREE.MeshLambertMaterial({}),
+    jobs.length,
   );
-  for (let i = 0; i < 90; i++) {
-    const a = rng() * 6.28,
-      r = Math.sqrt(rng()) * 8.3;
-    dummy.position.set(Math.cos(a) * r, 0.02, Math.sin(a) * r);
-    dummy.rotation.set(rng() * 3, rng() * 3, 0);
-    dummy.scale.set(0.6 + rng(), 0.2 + rng() * 0.3, 0.7 + rng());
-    dummy.updateMatrix();
-    stones.setMatrixAt(i, dummy.matrix);
-  }
-  scene.add(stones);
-  const roots: THREE.Group[] = [];
-  const tags: HTMLButtonElement[] = [];
-  jobs.forEach((job, i) => {
-    const pile = poopModel(i);
-    pile.position.set(job.x, 0, job.z);
-    pile.userData.id = job.id;
-    scene.add(pile);
-    roots.push(pile);
-    const tag = document.createElement("button");
-    tag.className = "world-label";
-    tag.textContent = job.company;
-    tag.setAttribute("aria-label", `Inspect ${job.title} at ${job.company}`);
-    tag.onclick = () => onSelect(job.id);
-    labels.append(tag);
-    tags.push(tag);
-  });
-  const fly = flyModel();
-  fly.position.set(0, 0.7, 0);
-  scene.add(fly);
-  const halo = new THREE.Mesh(
-    new THREE.RingGeometry(0.42, 0.46, 48),
+  const rings = new THREE.InstancedMesh(
+    new THREE.RingGeometry(0.64, 0.71, 16),
     new THREE.MeshBasicMaterial({
-      color: "#a86e28",
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.65,
     }),
+    jobs.length,
   );
-  halo.rotation.x = -Math.PI / 2;
-  halo.position.y = 0.04;
-  scene.add(halo);
-  const trailPositions = new Float32Array(240 * 3);
-  const trailGeometry = new THREE.BufferGeometry();
-  trailGeometry.setAttribute(
-    "position",
-    new THREE.BufferAttribute(trailPositions, 3),
+  jobs.forEach((job, i) => {
+    dummy.position.set(job.x, 0, job.z);
+    dummy.rotation.set(0, i * 2.4, 0);
+    dummy.scale.setScalar(1);
+    dummy.updateMatrix();
+    piles.setMatrixAt(i, dummy.matrix);
+    piles.setColorAt(i, color.set(i % 2 ? "#9c7860" : "#ad8b70"));
+    dummy.position.y = 0.025;
+    dummy.rotation.x = -Math.PI / 2;
+    dummy.updateMatrix();
+    rings.setMatrixAt(i, dummy.matrix);
+    rings.setColorAt(i, color.set("#bcc5a9"));
+  });
+  piles.computeBoundingSphere();
+  scene.add(piles, rings);
+  const distantJobs = distantSprites(jobs.length),
+    distantFlies = distantSprites(24, true);
+  jobs.forEach((j, i) => {
+    distantJobs.geometry.attributes.position.setXYZ(i, j.x, 0.5, j.z);
+    color.set(i % 2 ? "#9c7860" : "#ad8b70");
+    distantJobs.geometry.attributes.color.setXYZ(i, color.r, color.g, color.b);
+  });
+  scene.add(distantJobs.points, distantFlies.points);
+  let nearJobs: number[] = [];
+  piles.count = rings.count = 0;
+  const marker = new THREE.Mesh(
+    new THREE.RingGeometry(0.8, 0.87, 32),
+    new THREE.MeshBasicMaterial({ color: "#684693", side: THREE.DoubleSide }),
   );
-  trailGeometry.setDrawRange(0, 0);
-  const trail = new THREE.Line(
-    trailGeometry,
-    new THREE.LineBasicMaterial({
-      color: "#7754bc",
-      transparent: true,
-      opacity: 0.44,
-    }),
-  );
-  trail.frustumCulled = false;
-  scene.add(trail);
-  let trailCount = 0,
-    lastRevision = -1,
+  marker.rotation.x = -Math.PI / 2;
+  marker.visible = false;
+  scene.add(marker);
+  const template = flyModel();
+  template.updateMatrixWorld(true);
+  const parts: {
+    mesh: THREE.InstancedMesh;
+    local: THREE.Matrix4;
+    wing: number;
+  }[] = [];
+  template.traverse((obj) => {
+    if (obj instanceof THREE.Mesh) {
+      const mesh = new THREE.InstancedMesh(obj.geometry, obj.material, 24);
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      mesh.frustumCulled = false;
+      parts.push({
+        mesh,
+        local: obj.matrixWorld.clone(),
+        wing: obj.name.startsWith("wing") ? Number(obj.name.slice(4)) : 0,
+      });
+      scene.add(mesh);
+    }
+  });
+  const bodies = Array.from({ length: 24 }, () => new THREE.Object3D());
+  let state: State | null = null,
+    selected: string | null = null,
     frame = 0,
-    state: State | null = null,
-    selected: string | null = null;
+    initialized = false;
+  let lastTime = performance.now(),
+    measuredAt = lastTime,
+    frames = 0;
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const matrix = new THREE.Matrix4(),
+    flap = new THREE.Matrix4(),
+    vector = new THREE.Vector3();
+  const tags = Array.from({ length: 12 }, () => {
+    const el = document.createElement("button");
+    el.className = "world-label";
+    el.hidden = true;
+    labels.append(el);
+    return el;
+  });
+  let labelIndices: number[] = [],
+    labelsAt = 0;
+  const raycaster = new THREE.Raycaster(),
+    pointer = new THREE.Vector2();
+  let down = [0, 0];
+  function pointerDown(e: PointerEvent) {
+    down = [e.clientX, e.clientY];
+  }
+  function pointerUp(e: PointerEvent) {
+    if (Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
+    const rect = canvas.getBoundingClientRect();
+    pointer.set(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      (-(e.clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    raycaster.setFromCamera(pointer, camera);
+    const hit = raycaster.intersectObject(piles)[0];
+    if (hit?.instanceId !== undefined) {
+      onSelect(jobs[nearJobs[hit.instanceId]].id);
+      return;
+    }
+    raycaster.params.Points.threshold = 0.6;
+    const far = raycaster.intersectObject(distantJobs.points)[0];
+    if (far?.index !== undefined) onSelect(jobs[far.index].id);
+  }
+  canvas.addEventListener("pointerdown", pointerDown);
+  canvas.addEventListener("pointerup", pointerUp);
   const observer = new ResizeObserver(() => {
     const { width, height } = canvas.getBoundingClientRect();
     renderer.setSize(width, height, false);
-    camera.aspect = width / height;
+    camera.aspect = width / Math.max(1, height);
     camera.updateProjectionMatrix();
   });
   observer.observe(canvas);
-  const vector = new THREE.Vector3();
   function render() {
     frame = requestAnimationFrame(render);
-    if (document.hidden) return;
-    controls.update();
-    if (state) {
-      fly.position.x = THREE.MathUtils.lerp(fly.position.x, state.fly.x, 0.25);
-      fly.position.z = THREE.MathUtils.lerp(fly.position.z, state.fly.z, 0.25);
-      fly.rotation.y = state.fly.heading;
-      fly.position.y = state.landed?.length
-        ? 0.9
-        : 0.7 + (reduced ? 0 : Math.sin(performance.now() * 0.004) * 0.04);
-      for (const side of [-1, 1]) {
-        const wing = fly.getObjectByName(`wing${side}`);
-        if (wing)
-          wing.rotation.z =
-            state.running && !state.landed && !reduced
-              ? Math.sin(performance.now() * 0.08) * 0.3 * side
-              : 0.08 * side;
-      }
-      halo.position.set(fly.position.x, 0.03, fly.position.z);
-      if (state.elapsed !== lastRevision) {
-        lastRevision = state.elapsed;
-        if (trailCount >= 240) {
-          trailPositions.copyWithin(0, 3);
-          trailCount = 239;
-        }
-        trailPositions.set(
-          [fly.position.x, 0.035, fly.position.z],
-          trailCount * 3,
-        );
-        trailCount++;
-        trailGeometry.setDrawRange(0, trailCount);
-        trailGeometry.attributes.position.needsUpdate = true;
-      }
+    const now = performance.now(),
+      dt = Math.min((now - lastTime) / 1000, 0.1);
+    lastTime = now;
+    if (document.hidden) {
+      measuredAt = now;
+      frames = 0;
+      return;
     }
-    roots.forEach((root, i) => {
-      const ring = root.getObjectByName("ring") as THREE.Mesh;
-      const mat = ring.material as THREE.MeshBasicMaterial;
-      const active = jobs[i].id === state?.target;
-      mat.opacity = active ? 0.9 : 0.24;
-      mat.color.set(
-        state?.marks[jobs[i].id] === "liked"
-          ? "#a7d1b8"
-          : active
-            ? "#f0ca9e"
-            : "#b4a1db",
+    controls.update();
+    const swarm = state?.swarm || [];
+    let nearFlyCount = 0;
+    parts.forEach((p) => {
+      p.mesh.visible = swarm.length > 0;
+    });
+    swarm.forEach((fly, i) => {
+      if (i >= bodies.length) return;
+      const body = bodies[i],
+        smooth = initialized && !reduced ? 1 - Math.exp(-dt * 1.8) : 1;
+      body.position.x = THREE.MathUtils.lerp(body.position.x, fly.x, smooth);
+      body.position.z = THREE.MathUtils.lerp(body.position.z, fly.z, smooth);
+      body.position.y = THREE.MathUtils.lerp(
+        body.position.y,
+        fly.landed ? 1.12 : 1.8,
+        smooth,
       );
-      vector.set(root.position.x, 1.05, root.position.z).project(camera);
-      const x = (vector.x * 0.5 + 0.5) * canvas.clientWidth,
-        y = (-vector.y * 0.5 + 0.5) * canvas.clientHeight;
-      tags[i].style.transform =
-        `translate(-50%, -100%) translate(${x}px,${y}px)`;
-      tags[i].classList.toggle("active", active || jobs[i].id === selected);
-      tags[i].classList.toggle("liked", state?.marks[jobs[i].id] === "liked");
-      tags[i].style.visibility = vector.z > 1 ? "hidden" : "visible";
+      body.rotation.y +=
+        Math.atan2(
+          Math.sin(fly.heading - body.rotation.y),
+          Math.cos(fly.heading - body.rotation.y),
+        ) * smooth;
+      body.updateMatrix();
+      distantFlies.geometry.attributes.position.setXYZ(
+        i,
+        body.position.x,
+        body.position.y,
+        body.position.z,
+      );
+      if (camera.position.distanceTo(body.position) >= 24) return;
+      const renderIndex = nearFlyCount++;
+      parts.forEach((part) => {
+        matrix.multiplyMatrices(body.matrix, part.local);
+        if (part.wing && state?.running && !fly.landed && !reduced) {
+          flap.makeRotationZ(Math.sin(now * 0.075 + i) * 0.22 * part.wing);
+          matrix.multiply(flap);
+        }
+        part.mesh.setMatrixAt(renderIndex, matrix);
+      });
+    });
+    if (swarm.length) initialized = true;
+    distantFlies.geometry.attributes.position.needsUpdate = true;
+    distantFlies.geometry.setDrawRange(0, swarm.length);
+    distantJobs.material.uniforms.pixelScale.value =
+      distantFlies.material.uniforms.pixelScale.value =
+        (canvas.clientHeight * renderer.getPixelRatio()) /
+        (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+    parts.forEach((p) => {
+      p.mesh.count = nearFlyCount;
+      p.mesh.instanceMatrix.needsUpdate = true;
+    });
+    if (now - labelsAt > 300) {
+      labelsAt = now;
+      const distances = jobs.map(
+        (j) =>
+          (j.x - camera.position.x) ** 2 +
+          (j.z - camera.position.z) ** 2 +
+          (camera.position.y - 0.5) ** 2,
+      );
+      nearJobs = [...jobs.keys()]
+        .filter((i) => distances[i] < 24 ** 2)
+        .sort((a, b) => distances[a] - distances[b])
+        .slice(0, 200);
+      const cutoff =
+        nearJobs.length === 200
+          ? Math.sqrt(distances[nearJobs[199]]) + 0.0001
+          : 24;
+      distantJobs.material.uniforms.nearCutoff.value = cutoff;
+      piles.count = rings.count = nearJobs.length;
+      nearJobs.forEach((index, i) => {
+        const j = jobs[index];
+        dummy.position.set(j.x, 0, j.z);
+        dummy.rotation.set(0, index * 2.4, 0);
+        dummy.scale.setScalar(1);
+        dummy.updateMatrix();
+        piles.setMatrixAt(i, dummy.matrix);
+        piles.setColorAt(i, color.set(index % 2 ? "#9c7860" : "#ad8b70"));
+        dummy.position.y = 0.025;
+        dummy.rotation.x = -Math.PI / 2;
+        dummy.updateMatrix();
+        rings.setMatrixAt(i, dummy.matrix);
+        const activity = state?.ecosystem?.activity[j.id];
+        rings.setColorAt(
+          i,
+          color.set(
+            state?.marks[j.id] === "liked"
+              ? "#307c53"
+              : activity?.mature
+                ? "#7955af"
+                : activity
+                  ? "#c29441"
+                  : "#bcc5a9",
+          ),
+        );
+      });
+      piles.instanceMatrix.needsUpdate =
+        rings.instanceMatrix.needsUpdate = true;
+      if (piles.instanceColor) piles.instanceColor.needsUpdate = true;
+      if (rings.instanceColor) rings.instanceColor.needsUpdate = true;
+      const priority = new Set([
+        selected,
+        ...(state?.ecosystem?.recommendations || []).slice(0, 4),
+      ]);
+      const close = [...jobs.keys()].sort(
+        (a, b) =>
+          (jobs[a].x - controls.target.x) ** 2 +
+          (jobs[a].z - controls.target.z) ** 2 -
+          ((jobs[b].x - controls.target.x) ** 2 +
+            (jobs[b].z - controls.target.z) ** 2),
+      );
+      labelIndices = [
+        ...new Set(
+          [...jobs.keys()]
+            .filter((i) => priority.has(jobs[i].id))
+            .concat(
+              camera.position.distanceTo(controls.target) < radius
+                ? close.slice(0, 8)
+                : [],
+            ),
+        ),
+      ].slice(0, tags.length);
+    }
+    tags.forEach((tag, i) => {
+      const index = labelIndices[i];
+      if (index === undefined) {
+        tag.hidden = true;
+        return;
+      }
+      const job = jobs[index];
+      vector.set(job.x, 1.5, job.z).project(camera);
+      tag.hidden =
+        vector.z > 1 ||
+        vector.z < -1 ||
+        Math.abs(vector.x) > 0.95 ||
+        Math.abs(vector.y) > 0.9;
+      tag.textContent = job.company;
+      tag.setAttribute("aria-label", `Inspect ${job.title} at ${job.company}`);
+      tag.onclick = () => onSelect(job.id);
+      tag.style.transform = `translate(-50%,-100%) translate(${(vector.x * 0.5 + 0.5) * canvas.clientWidth}px,${(-vector.y * 0.5 + 0.5) * canvas.clientHeight}px)`;
+      tag.classList.toggle("active", selected === job.id);
     });
     renderer.render(scene, camera);
+    frames++;
+    if (now - measuredAt >= 1000) {
+      canvas.dataset.fps = ((frames * 1000) / (now - measuredAt)).toFixed(1);
+      canvas.dataset.drawCalls = String(renderer.info.render.calls);
+      canvas.dataset.triangles = String(renderer.info.render.triangles);
+      canvas.dataset.jobs = String(jobs.length);
+      canvas.dataset.detailedJobs = String(nearJobs.length);
+      canvas.dataset.flies = String(swarm.length);
+      frames = 0;
+      measuredAt = now;
+    }
   }
   render();
   return {
     update(s: State, id: string | null) {
+      const changedSelection = id !== selected;
       state = s;
       selected = id;
+      const chosen = jobs.find((j) => j.id === id);
+      if (changedSelection && chosen) {
+        const offset = camera.position
+          .clone()
+          .sub(controls.target)
+          .normalize()
+          .multiplyScalar(16);
+        controls.target.set(chosen.x, 0, chosen.z);
+        camera.position.copy(controls.target).add(offset);
+      }
+      marker.visible = !!chosen;
+      if (chosen) marker.position.set(chosen.x, 0.04, chosen.z);
+      jobs.forEach((job, i) => {
+        const activity = s.ecosystem?.activity[job.id];
+        color.set(
+          s.marks[job.id] === "liked"
+            ? "#307c53"
+            : activity?.mature
+              ? "#7955af"
+              : activity
+                ? "#b89554"
+                : i % 2
+                  ? "#9c7860"
+                  : "#ad8b70",
+        );
+        distantJobs.geometry.attributes.color.setXYZ(
+          i,
+          color.r,
+          color.g,
+          color.b,
+        );
+      });
+      distantJobs.geometry.attributes.color.needsUpdate = true;
     },
-    resetCamera() {
-      camera.position.set(13, 16, 18);
-      controls.target.set(0, 0, 0);
-    },
+    resetCamera,
     dispose() {
       cancelAnimationFrame(frame);
       observer.disconnect();
       controls.dispose();
       tags.forEach((t) => t.remove());
+      canvas.removeEventListener("pointerdown", pointerDown);
+      canvas.removeEventListener("pointerup", pointerUp);
+      const geometries = new Set<THREE.BufferGeometry>(),
+        materials = new Set<THREE.Material>();
       scene.traverse((obj) => {
-        if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
-          obj.geometry.dispose();
-          const materials = Array.isArray(obj.material)
-            ? obj.material
-            : [obj.material];
-          materials.forEach((m) => m.dispose());
+        if (obj instanceof THREE.Mesh || obj instanceof THREE.Points) {
+          geometries.add(obj.geometry);
+          (Array.isArray(obj.material) ? obj.material : [obj.material]).forEach(
+            (m) => materials.add(m),
+          );
+          if (obj instanceof THREE.InstancedMesh) obj.dispose();
         }
       });
+      geometries.forEach((g) => g.dispose());
+      materials.forEach((m) => m.dispose());
       renderer.dispose();
     },
   };

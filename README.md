@@ -1,14 +1,15 @@
 # Jobfly
 
-**Real jobs. Your resume. A fly brain that learns what you like.**
+**A world of real jobs. A swarm with time to explore.**
 
 [Start a session →](https://fly.jsonresume.org)
 
 ![Jobfly's Three.js habitat and live neural HUD](docs/habitat.png)
 
-A fruit fly wanders through a miniature world of job-poop. When it lands,
-you decide whether the opportunity is worth your time. Your feedback changes
-connections in its simulated brain, influencing what it explores next.
+Twenty-four flies explore a world of real job-poop. They compare opportunities,
+revisit promising patches, land, linger, and carry on. **Worth a look** stays quiet
+for at least two minutes of simulation and only surfaces jobs checked by three
+or more flies. No feedback is required to keep the ecosystem moving.
 
 The habitat and neural HUD are built with **Three.js**. The simulation uses all
 **166,700 neurons and 25,582,938 connections** in fly.ai's MaleCNS model.
@@ -19,7 +20,7 @@ The habitat and neural HUD are built with **Three.js**. The simulation uses all
 - Review and edit the resulting `resume.json`, then download it or start searching.
 - Get a unique `/s/<random-token>` URL that restores your resume, jobs, and learning in another browser.
 - Explore real job listings in Three.js; open the source posting and inspect the brain HUD.
-- Like or pass after landing. The feedback changes existing learning-circuit connections.
+- Like or pass on any job, whenever you want. The feedback changes existing learning-circuit connections.
 - Keep notes and export liked jobs. No applications are submitted and no employers are contacted.
 
 There are no bundled example jobs and no arbitrary job-import endpoint.
@@ -39,8 +40,11 @@ export FLY_DATA=/path/to/data/jobfly/brain
 export JOBFLY_STATE=/path/to/data/jobfly/state
 export NUMBA_NUM_THREADS=2
 export OPENBLAS_NUM_THREADS=1
+export JOBFLY_EMBED_CACHE=/path/to/data/jobfly/embeddings
+export JOBFLY_JOB_VECTOR_CACHE=/path/to/data/jobfly/job-vectors.sqlite
 
 npm run brain:setup  # downloads MaleCNS v1.0 and builds the sparse model
+.venv/bin/python scripts/setup-embeddings.py
 npm run build
 npm run server      # http://127.0.0.1:8787
 ```
@@ -53,16 +57,23 @@ browser does not advance the simulation.
 
 ### Real jobs and session links
 
-The first screen requires a resume. JSON Resume’s `/api/v1/jobs` is the primary
-matching source. If it fails or returns no usable postings, Jobfly fetches current
-[Arbeitnow listings](https://www.arbeitnow.com/blog/job-board-api), ranks them by
-resume text similarity, and visibly identifies that fallback. The feed is mostly
-European jobs; lexical ranking does not establish eligibility or suitability.
-Every displayed job links back to its source. Availability can change after import.
+The first screen requires a resume. JSON Resume's matching API supplies up to
+500 postings when available. The public [Arbeitnow feed](https://www.arbeitnow.com/blog/job-board-api)
+adds up to 12 pages, cached for an hour and deduplicated by posting URL. The live
+feed returned **1,491 unique listings** during development; the count varies.
+There is no synthetic padding and no top-20 truncation. Mostly European jobs;
+check location and requirements. Every job links to its original posting.
+Availability can change after import; a session retains its imported catalog.
+
+The world renders every imported job. Distant jobs and flies use lightweight
+sprites; up to 200 nearby jobs resolve into instanced 3D meshes. Nearby fly parts
+are instanced across the swarm. Twelve reusable labels, raycast picking,
+pan/orbit/zoom, and a searchable paginated list keep thousands of jobs navigable.
+Canvas data attributes expose rendered job count, draw calls, triangles, and FPS.
 
 Session links contain 192-bit random tokens. **Anyone with a link can read the
 resume and update that session.** Keep links private; there is no account login.
-Each session has its own append-only SQLite checkpoints under `JOBFLY_STATE`.
+Each session has append-only SQLite checkpoints under `JOBFLY_STATE`. Immutable, compressed catalog/vector objects are reused between checkpoints. Public job embeddings are cached across sessions; resumes are not shared.
 Responses are not cached, session pages are marked noindex, referrers are suppressed,
 and application access logging is disabled. Server restarts preserve session URLs.
 The home page does not allocate a brain or load Three.js.
@@ -99,71 +110,90 @@ when the interpreter is explicitly run. Likes/dislikes train immediately.
 
 ```mermaid
 flowchart LR
-  J[Job text and optional LLM comparison] --> E[Stable lexical sensory encoder]
-  E --> K[Kenyon-cell stimulation]
-  K --> B[Full recurrent MaleCNS simulation]
-  T[Directional target stimulus] --> B
-  B --> D[DNa02 motor activity]
-  D --> M[Fly movement and landing]
-  M --> H[Your like or dislike]
-  H --> P[Reward-modulated KC to MBON edges]
+  J[Resume and real job descriptions] --> E[Local semantic embeddings]
+  E --> O[53 olfactory receptor populations]
+  O --> B[Full recurrent connectome]
+  B --> R[Measured population response]
+  R --> D[Explicit learned activity decoder]
+  D --> S[Swarm attention and repeated observations]
+  V[Virtual visual input] --> B
+  B --> M[Descending population: turn, speed, brake]
+  M --> F[24 independent bodies]
+  F --> S
+  H[Optional feedback] --> P[DAN activity gated KC to MBON plasticity]
+  H --> D
   P --> B
-  P --> A[Learned attraction adapter]
-  A --> T
 ```
 
-- **Neurons:** upstream leaky integrate-and-fire dynamics, original sparse
-  connectome, full population, 20 ms simulated steps. CPU execution is the
-  supported learning backend; swapping to CUDA requires synchronizing plastic
-  weight updates with the GPU matrix first.
-- **Sensory interface:** character n-grams are hashed into a fixed lexical
-  space and projected into sparse Kenyon-cell ensembles. This mapping remains
-  stable across job imports. It is an artificial input channel, not a biological
-  model of smell. An optional LLM can supply richer grounded comparison text.
-- **Movement:** lateral LC10a stimulation flows through the model to DNa02
-  steering neurons. A simple kinematic body converts the left/right activity
-  difference into turning. Forward locomotion is a constant body-controller
-  component, and the world wraps at its boundaries.
-- **Learning:** recent firing in the presented Kenyon-cell ensemble determines
-  eligibility. A reward strengthens or weakens existing KC → MBON connections,
-  bounded to 0.25–2 times their original magnitude. Signs and topology remain
-  intact. No new anatomical connections are invented.
-- **Attraction:** an explicit adapter reads modified circuit strengths to bias
-  stochastic target selection. Target selection is not solely an emergent
-  biological decision. The full recurrent simulation controls steering.
-- **Visualization:** Three.js renders all 140,638 neurons with measured positions.
-  Activity packets sample at most 3,500 mapped spikes; the HUD reports the total
-  spike count separately. Unmapped neurons still participate in simulation.
+- **Full circuit:** 166,700 LIF neurons, 25,582,938 signed connections, 20 ms
+  steps. Candidate measurements use matched 32-step recurrent windows, reset
+  between windows. This retains recurrence within each window, not continuous
+  lifetime membrane state.
+- **Swarm:** 24 separate bodies, attention queues, dwell timers and histories
+  take turns using **one full network per session**. Shared learned weights and
+  different sensory gains support collective exploration. This is explicitly
+  time-multiplexed computation, not 24 simultaneously integrated brains.
+- **Senses:** locally cached MiniLM embeddings encode complete descriptions in
+  chunks. A fixed projection drives 53 actual ORN populations upstream of the
+  mushroom body. Directly injected neurons are excluded from candidate readout.
+  The resume is measured through the same circuit as the initial reference.
+- **Decision:** all non-injected populations contribute to a fixed 512-dimensional
+  response projection. An artificial kernel readout learns optional user ratings.
+  Text similarity, distances, feed rank, and averaged synaptic factors do not
+  enter that readout. Exploration scheduling uses novelty, nearby jobs, and
+  recruitment to jobs with strong measured responses.
+- **Movement:** an explicit body decoder reads 1,314 descending neurons after
+  retinal and LC10a feature stimulation. Turn, speed and braking depend on actual
+  neural responses; there is no constant-speed fallback or forced landing.
+  Calibration is engineered supervision of a virtual body, not biological proof.
+- **Learning:** measured stimulus-excess KC activity, MBON activity and actual
+  PAM/PPL1 spikes reaching MBONs through existing edges gate a bounded update.
+  Signs/topology remain intact. Optional ratings also train the explicit readout.
+- **Patience:** suggestions require elapsed observation time and at least three
+  distinct flies. These are repeated algorithmic observations, not independent
+  statistical evidence of suitability. Landing never pauses the whole swarm.
+- **Causal controls:** Brain offers no wiring, no smell, no mushroom body,
+  no vision, and no motor interventions. Learning is blocked during interventions.
+- **HUD:** the expanded view renders all 140,638 measured positions. The compact
+  HUD samples every sixth position plus all activity in each packet; at most 3,500
+  mapped active neurons are sampled per packet. Unmapped neurons still simulate.
 
-This is an engineered, connectome-based experiment. It is **not a validated
-dopamine-learning model**, not an emulation of a complete living animal, and
-not evidence that fly wiring improves job matching. Broader recommendation
-quality and generalization need a held-out evaluation against simpler models.
+This is **connectome reservoir computing with engineered interfaces and plasticity**.
+It is not a validated biological dopamine model or evidence of superior job matching.
+The native named forward-walking cells were silent in probes; using a calibrated
+broader descending population is disclosed instead of hiding a constant motor.
+The model has unusually high baseline KC activity, so responses are baseline-subtracted;
+it should not be described as reproducing natural sparse mushroom-body physiology.
+
+Related primary work: [Shiu et al., Nature 2024](https://www.nature.com/articles/s41586-024-07763-9)
+validated particular sensorimotor predictions in a different FlyWire model;
+[Aso & Rubin, eLife 2016](https://elifesciences.org/articles/16135) studied
+cell-type-specific dopamine learning. Neither validates Jobfly's adapters.
 
 ## Verification
 
 ```sh
 npm run build
 npm test
-CHROME_PATH=/path/to/chrome node scripts/verify-light.mjs
+CHROME_PATH=/path/to/chrome node scripts/verify-swarm.mjs
 ```
 
 Unit tests cover reward specificity, bounds/sign preservation, stable sensory
 identity, checkpoints, resume validation, lossless JSON upload, Word table extraction,
 unique URLs, access boundaries, and an empty brain input before setup.
 The browser verifier uses Thomas Davis’s public resume, real jobs, and the actual
-brain, checking landing, feedback, changed weights, reopening in another browser,
+brain, checking continuous exploration, optional feedback, changed weights, reopening in another browser,
 and desktop/mobile layouts. Private test links stay outside the repository.
 
 ## Deployment
 
 The repository includes a multi-stage `Dockerfile`, a Podman Quadlet, and a
 Caddy site in `deploy/`. Build `localhost/jobfly:latest`, mount model data
-read-only at `/brain` and persistent session storage at `/state`, then install
+read-only at `/brain`, local embedding model at `/embeddings`, and persistent session storage at `/state`, then install
 the Quadlet. The provided origin binds to `127.0.0.1:8788`; Caddy serves
 `fly.jsonresume.org` with automatic TLS and unbuffered SSE.
 
-Three resident brains maximum; disconnected sessions can be evicted and reload
+Two resident brains maximum; disconnected sessions can be evicted and reload
 their saved learning. The Quadlet limits the service to 3 GB RAM and two CPU
 cores worth of time. This is a small experimental deployment, not a horizontally
 scaled service. `/healthz` checks model-file presence; a moving simulation must

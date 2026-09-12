@@ -2,24 +2,22 @@ import * as THREE from "three";
 
 export function flyModel() {
   const fly = new THREE.Group();
-  const shell = new THREE.MeshPhysicalMaterial({
+  const shell = new THREE.MeshStandardMaterial({
     color: "#42364e",
     metalness: 0.72,
     roughness: 0.28,
-    iridescence: 1,
-    iridescenceIOR: 1.4,
   });
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.19, 24, 16), shell);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.19, 12, 8), shell);
   body.scale.set(0.8, 0.75, 1.55);
   body.position.z = -0.12;
   fly.add(body);
-  const thorax = new THREE.Mesh(new THREE.SphereGeometry(0.16, 20, 14), shell);
+  const thorax = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 8), shell);
   thorax.position.z = 0.12;
   fly.add(thorax);
   for (const side of [-1, 1]) {
     const eye = new THREE.Mesh(
-      new THREE.SphereGeometry(0.1, 16, 12),
-      new THREE.MeshPhysicalMaterial({
+      new THREE.SphereGeometry(0.1, 10, 8),
+      new THREE.MeshStandardMaterial({
         color: "#cb6456",
         roughness: 0.25,
         metalness: 0.3,
@@ -28,8 +26,8 @@ export function flyModel() {
     eye.position.set(side * 0.105, 0.015, 0.26);
     fly.add(eye);
     const wing = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 24, 12),
-      new THREE.MeshPhysicalMaterial({
+      new THREE.SphereGeometry(1, 12, 8),
+      new THREE.MeshStandardMaterial({
         color: "#e4d8f8",
         transparent: true,
         opacity: 0.54,

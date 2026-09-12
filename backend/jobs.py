@@ -75,14 +75,17 @@ def fetch_resume_jobs(resume):
     try:
         with httpx.Client(timeout=35, headers={"User-Agent": "Mozilla/5.0 Jobfly/1.0"}, follow_redirects=True) as client:
             response = client.post("https://registry.jsonresume.org/api/v1/jobs",
-                                   json={"resume": resume, "top": 20, "days": 90})
+                                   json={"resume": resume, "top": 500, "days": 90})
             response.raise_for_status()
             rows = response.json().get("jobs", [])
         rows = [{**j, "id": str(j["id"]), "source": "jsonresume"} for j in rows
                 if j.get("title") and j.get("company") and str(j.get("url", "")).startswith(("https://", "http://"))]
     except (httpx.HTTPError, ValueError, KeyError):
         rows = []
-    if not rows:
-        from .job_feed import match_public_jobs
-        rows = match_public_jobs(resume)
-    return rows
+    from .job_feed import match_public_jobs
+    try:
+        rows += match_public_jobs(resume)
+    except (httpx.HTTPError, ValueError, KeyError):
+        if not rows:
+            raise
+    return list({j["url"]: j for j in rows}.values())[:3500]

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import {
   ArrowDownToLine,
   ArrowUpRight,
@@ -40,7 +40,9 @@ export default function SessionApp() {
     [message, setMessage] = useState(""),
     [connected, setConnected] = useState(false),
     [history, setHistory] = useState<History[]>([]),
-    [help, setHelp] = useState(false);
+    [help, setHelp] = useState(false),
+    [search, setSearch] = useState(""),
+    [page, setPage] = useState(0);
   const refresh = useCallback(async () => {
     const data = await api<{ jobs: Job[]; llm: boolean }>("jobs");
     setJobs(data.jobs);
@@ -77,17 +79,15 @@ export default function SessionApp() {
     };
   }, []);
   useEffect(() => {
-    if (state?.status === "ready") {
+    if (state?.status === "ready" || state?.status === "loading") {
       void refresh().catch((e) => setMessage(e.message));
-      if (!brain)
+      if (!brain && state?.status === "ready")
         void api<BrainData>("brain")
           .then(setBrain)
           .catch((e) => setMessage(e.message));
     }
   }, [state?.status, state?.revision, refresh, brain]);
-  useEffect(() => {
-    if (state?.landed) setSelected(state.landed);
-  }, [state?.landed]);
+
   useEffect(() => {
     if (tab === "notebook")
       void api<History[]>("history")
@@ -99,9 +99,19 @@ export default function SessionApp() {
     const timeout = setTimeout(() => setMessage(""), 7000);
     return () => clearTimeout(timeout);
   }, [message]);
-  const chosen =
-    jobs.find((j) => j.id === (selected || state?.landed || state?.target)) ||
-    null;
+  const chosen = jobs.find((j) => j.id === selected) || null;
+  const filtered = useMemo(
+    () =>
+      jobs.filter((j) =>
+        `${j.title} ${j.company} ${j.description}`
+          .toLocaleLowerCase()
+          .includes(search.toLocaleLowerCase()),
+      ),
+    [jobs, search],
+  );
+  const suggestions = (state?.ecosystem?.recommendations || [])
+    .map((id) => jobs.find((j) => j.id === id))
+    .filter((j): j is Job => !!j);
   const liked = jobs.filter((j) => state?.marks[j.id] === "liked");
   async function action(name: string, body?: unknown) {
     setBusy(true);
@@ -189,20 +199,34 @@ export default function SessionApp() {
             </button>
           ))}
         </nav>
-        <button
-          className="import-button"
-          onClick={() => location.assign("/")}
-        >
+        <button className="import-button" onClick={() => location.assign("/")}>
           <Upload size={14} /> New session <ArrowUpRight size={14} />
         </button>
       </header>
       <main>
-        <div className="session-links"><a href={endpoint("resume.json")}>Download resume.json</a><button className="text-button" onClick={() => navigator.clipboard.writeText(location.href).then(() => setMessage("Session link copied. Anyone with it can open and update this session.")).catch(() => setMessage("Copy the session URL from your address bar."))}>Copy session link ↗</button></div>
+        <div className="session-links">
+          <a href={endpoint("resume.json")}>Download resume.json</a>
+          <button
+            className="text-button"
+            onClick={() =>
+              navigator.clipboard
+                .writeText(location.href)
+                .then(() =>
+                  setMessage(
+                    "Session link copied. Anyone with it can open and update this session.",
+                  ),
+                )
+                .catch(() =>
+                  setMessage("Copy the session URL from your address bar."),
+                )
+            }
+          >
+            Copy session link ↗
+          </button>
+        </div>
         <div className="intro">
           <div>
-            <div className="experiment-label">
-              Your job search
-            </div>
+            <div className="experiment-label">Your job search</div>
             <h1>
               Find your <em>next move.</em>
             </h1>
@@ -211,7 +235,7 @@ export default function SessionApp() {
             <p>
               Your resume. Real jobs.
               <br />
-              Feedback that shapes the search.
+              Let the swarm take its time.
             </p>
             <button className="text-button" onClick={() => setHelp(!help)}>
               <CircleHelp size={13} /> How this works
@@ -221,23 +245,38 @@ export default function SessionApp() {
         {help && (
           <section className="help-panel">
             <p>
-              Each pile is a job. The fly follows neural steering
-              signals and lands on opportunities. Like or pass to change
-              existing learning-circuit connections. Drag either 3D view to look
-              around.
+              Each pile is a real job. Twenty-four flies explore, compare and
+              revisit them. Worth a look stays quiet for at least two minutes of
+              simulation and needs attention from three different flies.
+              Feedback is optional and never stops the swarm.
             </p>
             <p>
-              The connectome is real anatomical data; its dynamics and reward
-              rule are simplified experiments. Job availability is set by the employer.
-              Optional written feedback is saved; the LLM interpreter can
-              incorporate it when explicitly run.
+              The flies take turns using one full connectome and share learned
+              connections. Neural activity is decoded by an artificial readout;
+              this is an experiment, not a validated career adviser. The world
+              runs while this session is open. Job availability is set by the
+              employer. Optional written feedback is saved; the LLM interpreter
+              can incorporate it when explicitly run.
             </p>
             <button className="text-button" onClick={() => setHelp(false)}>
               Got it <Check size={14} />
             </button>
           </section>
         )}
-        {state?.source === "arbeitnow" && <p className="source-notice">JSON Resume matching is unavailable right now. These are current <a href="https://www.arbeitnow.com" target="_blank" rel="noreferrer">Arbeitnow listings</a>, ranked by resume text. Mostly Europe; check location and requirements.</p>}
+        {state?.source === "arbeitnow" && (
+          <p className="source-notice">
+            JSON Resume matching is unavailable right now. These are current{" "}
+            <a
+              href="https://www.arbeitnow.com"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Arbeitnow listings
+            </a>
+            , explored by the swarm. Mostly Europe; check location and
+            requirements.
+          </p>
+        )}
         <div className="session-bar">
           <div>
             <span className={`status-dot ${ready ? "online" : ""}`} />
@@ -245,14 +284,12 @@ export default function SessionApp() {
               {!connected
                 ? "Connecting"
                 : state?.status === "loading"
-                  ? "Loading the brain"
+                  ? state.loadingStage
                   : state?.status === "error"
                     ? "Could not load the brain"
-                    : state?.landed
-                      ? "Waiting for your feedback"
-                      : state?.running
-                        ? "Searching"
-                        : "Ready when you are"}
+                    : state?.running
+                      ? "Swarm exploring"
+                      : "Ready when you are"}
             </strong>
             <span className="session-source">
               {state?.source === "example"
@@ -308,7 +345,7 @@ export default function SessionApp() {
                 <span>Brain activity</span>
                 <span className="live-label">
                   <span className={ready ? "live-dot" : ""} />
-                  {state?.running && !state?.landed ? "LIVE" : "STANDBY"}
+                  {state?.running ? "LIVE" : "STANDBY"}
                 </span>
               </div>
               {tab === "habitat" && <Brain data={brain} state={state} />}
@@ -347,12 +384,12 @@ export default function SessionApp() {
                   { name: "Left stimulus", value: state?.drive[0] || 0 },
                   { name: "Right stimulus", value: state?.drive[1] || 0 },
                   {
-                    name: "Motor · left",
-                    value: Math.min((state?.motor[0] || 0) / 4, 1),
+                    name: "Turn",
+                    value: Math.abs(state?.motor[0] || 0),
                   },
                   {
-                    name: "Motor · right",
-                    value: Math.min((state?.motor[1] || 0) / 4, 1),
+                    name: "Speed",
+                    value: state?.motor[1] || 0,
                   },
                 ].map((s, i) => (
                   <div className="signal" key={s.name}>
@@ -392,12 +429,12 @@ export default function SessionApp() {
                 <p>
                   {state?.updates
                     ? "Your feedback is saved."
-                    : "Rate a job after the fly lands."}
+                    : "React to any job, whenever you want."}
                 </p>
               </div>
               <div className="brain-foot">
                 {brain?.mapped.toLocaleString() || "—"} mapped positions ·
-                spikes sampled
+                {tab === "brain" ? "spikes sampled" : "compact view sampled"}
                 <br />
                 {state?.stepMs || "—"} ms / step · CPU simulation
               </div>
@@ -447,41 +484,140 @@ export default function SessionApp() {
                     <BookOpen size={28} />
                     <p>No feedback yet.</p>
                     <span>
-                      Teach your fly after its first landing. Your feedback will
-                      collect here.
+                      React to any job. Your feedback will collect here.
                     </span>
                   </div>
                 )}
               </div>
-              {llm && <div className="interpreter">
-                <Sparkles size={23} />
-                <h3>Compare with AI</h3>
-                <p>
-                  The optional LLM interpreter compares jobs, your resume and
-                  your written feedback. It updates the sensory descriptions the
-                  fly receives.
-                </p>
-                <button
-                  className="secondary"
-                  disabled={!llm || busy || !ready}
-                  onClick={() =>
-                    action("interpret").then((ok) => {
-                      if (ok)
-                        setMessage(
-                          "Job comparisons updated.",
-                        );
-                    })
-                  }
-                >
-                  {busy ? "Interpreting…" : "Compare jobs"}
-                </button>
-                <small>
-                  {llm
-                    ? "Explicit run · sends jobs, resume and feedback to the configured OpenAI model. API charges may apply."
-                    : "Optional: configure OPENAI_API_KEY on the server. The fly works without it."}
-                </small>
-              </div>}
+              {llm && (
+                <div className="interpreter">
+                  <Sparkles size={23} />
+                  <h3>Compare with AI</h3>
+                  <p>
+                    The optional LLM interpreter compares jobs, your resume and
+                    your written feedback. It updates the sensory descriptions
+                    the fly receives.
+                  </p>
+                  <button
+                    className="secondary"
+                    disabled={!llm || busy || !ready}
+                    onClick={() =>
+                      action("interpret").then((ok) => {
+                        if (ok) setMessage("Job comparisons updated.");
+                      })
+                    }
+                  >
+                    {busy ? "Interpreting…" : "Compare jobs"}
+                  </button>
+                  <small>
+                    {llm
+                      ? "Explicit run · sends jobs, resume and feedback to the configured OpenAI model. API charges may apply."
+                      : "Optional: configure OPENAI_API_KEY on the server. The fly works without it."}
+                  </small>
+                </div>
+              )}
             </div>
+          </section>
+        )}
+        {tab !== "notebook" && (
+          <section className="ecosystem-panel" aria-label="Swarm discoveries">
+            <div className="list-heading">
+              <h2>
+                Worth a look <span>{suggestions.length}</span>
+              </h2>
+              <span>
+                {state?.ecosystem?.explored || 0} /{" "}
+                {jobs.length.toLocaleString()} jobs explored ·{" "}
+                {state?.swarm?.length || 24} flies
+              </span>
+            </div>
+            {suggestions.length ? (
+              <div className="job-chips">
+                {suggestions.map((j) => (
+                  <button key={j.id} onClick={() => setSelected(j.id)}>
+                    <span className="chip-monogram">
+                      {j.company.slice(0, 1)}
+                    </span>
+                    <span>
+                      <strong>{j.title}</strong>
+                      <small>
+                        {j.company} · {state?.ecosystem?.activity[j.id]?.flies}{" "}
+                        flies checked this
+                      </small>
+                    </span>
+                    <ArrowUpRight size={14} />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="settling">
+                <span className="live-dot" />
+                <div>
+                  <strong>The swarm is getting a feel for things.</strong>
+                  <p>
+                    Leave it exploring. Jobs appear here after repeated
+                    attention from several flies—not after the first landing.
+                  </p>
+                </div>
+              </div>
+            )}
+            <div className="ecosystem-legend">
+              <span>◌ Unexplored</span>
+              <span>🟡 Exploring</span>
+              <span>🟣 Repeated attention</span>
+              <span>🟢 Saved by you</span>
+            </div>
+          </section>
+        )}
+        {tab === "brain" && (
+          <section className="circuit-experiments">
+            <h2>Test the circuit</h2>
+            <p>
+              Switch off a pathway and watch what changes. Learning is suspended
+              during experiments. Returning to the intact circuit restarts
+              observation.
+            </p>
+            <label>
+              Pathway{" "}
+              <select
+                aria-label="Circuit intervention"
+                value={state?.intervention || "intact"}
+                disabled={!ready || busy}
+                onChange={(e) =>
+                  void action("control", {
+                    action: "intervention",
+                    intervention: e.target.value,
+                  })
+                }
+              >
+                {[
+                  "intact",
+                  "no_wiring",
+                  "no_smell",
+                  "no_memory",
+                  "no_vision",
+                  "no_motor",
+                ].map((v, i) => (
+                  <option key={v} value={v}>
+                    {
+                      [
+                        "Intact circuit",
+                        "Disconnect all synapses",
+                        "Silence smell",
+                        "Silence mushroom body",
+                        "Silence vision",
+                        "Silence motor output",
+                      ][i]
+                    }
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p>
+              {state?.activeNeurons.toLocaleString() || 0} neurons have fired ·{" "}
+              {state?.decoderSamples || 0} learned examples · full network
+              shared across {state?.swarm?.length || 24} flies.
+            </p>
           </section>
         )}
         {tab !== "notebook" && (
@@ -507,8 +643,42 @@ export default function SessionApp() {
                 : "Select a job to see the details."}
             </span>
           </div>
+          {tab !== "notebook" && (
+            <div className="catalog-tools">
+              <input
+                aria-label="Search all jobs"
+                placeholder="Search titles, companies, or descriptions"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(0);
+                }}
+              />
+              <span>
+                {filtered.length.toLocaleString()} jobs · every job is in the
+                world
+              </span>
+              <button
+                className="secondary"
+                disabled={page === 0}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                Previous
+              </button>
+              <button
+                className="secondary"
+                disabled={(page + 1) * 30 >= filtered.length}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </button>
+            </div>
+          )}
           <div className="job-chips">
-            {(tab === "notebook" ? liked : jobs).map((j) => (
+            {(tab === "notebook"
+              ? liked
+              : filtered.slice(page * 30, (page + 1) * 30)
+            ).map((j) => (
               <button
                 key={j.id}
                 onClick={() => {
@@ -555,7 +725,6 @@ export default function SessionApp() {
           </button>
         </div>
       )}
-
     </div>
   );
 }

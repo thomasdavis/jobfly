@@ -17,7 +17,7 @@ export default function Brain({
   useEffect(() => {
     if (!canvas.current || !data) return;
     try {
-      instance.current = createBrain(canvas.current, data);
+      instance.current = createBrain(canvas.current, data, expanded);
     } catch {
       setError(true);
     }
