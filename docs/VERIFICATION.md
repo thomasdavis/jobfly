@@ -6,6 +6,8 @@ The light interface was checked against the actual CPU brain and real job feed.
 - A new search creates a unique 192-bit session URL and 20 real, source-linked jobs.
 - Local full-flow test: a like changed **7,322 existing KC → MBON edges**.
 - A fresh browser opening the same URL restores the resume, feedback, and learned preference.
+- After restarting the deployed service, the same URL restored one rating, its liked
+  job, the learned weights, and Thomas’s resume. The check waits for HTTP readiness.
 - PDF upload was exercised through the public site: extraction, schema-validated
   AI conversion, editable review, download as `resume.json`, and a lossless JSON re-upload.
 - Word extraction, including tables, is covered by an automated test.
