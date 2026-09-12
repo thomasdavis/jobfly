@@ -16,8 +16,10 @@ try {
  await page.waitForFunction(()=>document.body.innerText.includes('1 ratings'),undefined,{timeout:120000});
  const state=await page.evaluate(id=>fetch(`/api/state?session=${id}`).then(r=>r.json()),id);
  assert.equal(state.updates,1);assert(Object.values(state.marks).includes('liked'));
+ assert.equal(state.policyVersion,3);assert.equal(state.swarm.length,24);assert(state.decoderSamples>=1);
+ const catalog=await page.evaluate(id=>fetch(`/api/jobs?session=${id}`).then(r=>r.json()),id);assert(catalog.jobs.length>=500);
  const resume=await page.evaluate(id=>fetch(`/api/resume.json?session=${id}`).then(r=>r.json()),id);assert.equal(resume.basics.name,'Thomas Davis');
  const response=await page.request.get(`${base}/api/resume.json?session=${'a'.repeat(48)}`);assert.equal(response.status(),404);
- await fs.writeFile(`${out}/persistence-results.json`,JSON.stringify({updates:state.updates,marks:state.marks,resumeRestored:true,invalidLinkRejected:true},null,2));
+ await fs.writeFile(`${out}/persistence-results.json`,JSON.stringify({updates:state.updates,marks:state.marks,flies:state.swarm.length,jobs:catalog.jobs.length,decoderSamples:state.decoderSamples,resumeRestored:true,invalidLinkRejected:true},null,2));
  console.log('Session URL, resume, learning, and feedback survived restart.');
 } finally {await browser.close();}

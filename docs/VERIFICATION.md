@@ -1,4 +1,49 @@
-# Resume-first verification — 2026-09-12
+# Continuous swarm verification — 2026-09-12
+
+Runtime commit: `ab24447bd54294cbaeb6e64771193564381947f0`.
+
+- All 23 automated tests pass; GitHub Actions run 34711953903 passed.
+- The packaged Python sources match the committed source hashes.
+- Full-model experiments use 166,700 neurons and 25,582,938 signed connections.
+  All 24 flies moved, six landings occurred, and the first unrated suggestion
+  appeared after 240 simulated seconds. See [neural evidence](neural-evidence.json).
+- Wiring/smell interventions remove measured job responses. Vision/motor
+  interventions remove decoded movement. Six held-out visual angles produced
+  the correct turn direction.
+- The packaged candidate browser test rendered all 1,462 real, unique job URLs,
+  with 24 flies, 23 habitat draw calls, 200 detailed nearby job models, and no
+  browser page errors. Desktop and mobile flows passed. Liking a job changed
+  52,871 existing learning-circuit edges; the swarm continued without changing
+  the selected job.
+- Negative feedback was independently exercised: 58,576 changed edges and a
+  negative learned prediction, with exploration continuing.
+
+## Public deployment
+
+The browser flow passed against https://fly.jsonresume.org:
+
+- 1,462 real jobs rendered, 24 flies moved, and 70 jobs explored before feedback.
+- First autonomous suggestion: 213 simulated seconds, 78 jobs observed, nine
+  landings, and **zero ratings**.
+- Optional feedback changed 52,871 existing edges. Exploration continued and
+  the selected job stayed selected.
+- 23 habitat draw calls, 91,744 triangles, and 200 detailed nearby jobs in the
+  tested view. All 1,462 job positions were rendered.
+- A production service restart preserved the session URL, Thomas Davis resume,
+  liked job, one rating, the learned activity sample, all 1,462 jobs, and 24 flies.
+  Invalid session links returned 404.
+- Mobile layout, neural intervention controls, opening the session in another
+  browser, and resume restoration passed. No browser page errors occurred.
+
+
+These establish working integration and causal circuit participation, not
+recommendation accuracy or biological fidelity. The swarm time-shares one full
+network per session. CPU software rendering was checked, not hardware-GPU frame
+rate. Real job counts and source availability vary.
+
+---
+
+# Historical resume-first verification — 2026-09-12
 
 The light interface was checked against the actual CPU brain and real job feed.
 
@@ -28,7 +73,7 @@ per attempt, and retried once. Failed conversion returns a recoverable error.
 
 Artifacts and private session tokens are stored on the mounted research drive,
 not in this repository. `verify-light.mjs`, `verify-upload.mjs`, and
-`verify-persistence.mjs` reproduce the current flows. The historical results below
+`verify-persistence.mjs` reproduce the earlier flows. The historical results below
 refer to the previous example-based version, which is no longer served.
 
 ---
