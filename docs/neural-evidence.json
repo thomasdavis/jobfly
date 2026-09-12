@@ -179,5 +179,11 @@
   "modelSHA256": {
     "brain.npz": "bef7dddd63b459cdb5471869e32a5b9dd474748fa8348f0bda9b45122d4a39bf",
     "weights.npz": "e00e3f2a9828c921fe1f093cc567bf45a85adad0526176be0aa1b8be09336eeb"
+  },
+  "negativeFeedback": {
+    "changed": 58576,
+    "prediction": -0.88766,
+    "updates": 2,
+    "learningContinues": true
   }
 }

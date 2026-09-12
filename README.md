@@ -133,7 +133,7 @@ flowchart LR
   take turns using **one full network per session**. Shared learned weights and
   different sensory gains support collective exploration. This is explicitly
   time-multiplexed computation, not 24 simultaneously integrated brains.
-- **Senses:** locally cached MiniLM embeddings encode complete descriptions in
+- **Senses:** locally cached MiniLM embeddings encode overlapping description
   chunks. A fixed projection drives 53 actual ORN populations upstream of the
   mushroom body. Directly injected neurons are excluded from candidate readout.
   The resume is measured through the same circuit as the initial reference.
@@ -171,6 +171,13 @@ validated particular sensorimotor predictions in a different FlyWire model;
 cell-type-specific dopamine learning. Neither validates Jobfly's adapters.
 
 ## Verification
+
+The [recorded full-model experiment](docs/neural-evidence.json) moved all 24 flies,
+made six landings, and surfaced an unrated suggestion after 240 simulated seconds.
+96,853 neurons fired. Disconnecting wiring or smell removed the measured job
+response; disabling vision or motor output zeroed movement. These checks establish
+causal participation and integration, **not recommendation accuracy**.
+
 
 ```sh
 npm run build

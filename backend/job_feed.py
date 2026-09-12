@@ -18,6 +18,12 @@ class PlainText(HTMLParser):
     def handle_data(self, data):
         self.parts.append(data)
 
+    def handle_starttag(self, tag, attrs):
+        self.parts.append(" ")
+
+    def handle_endtag(self, tag):
+        self.parts.append(" ")
+
 
 def plain_description(value):
     # Some upstream postings contain escaped HTML inside an HTML response.
@@ -26,7 +32,8 @@ def plain_description(value):
     for _ in range(3):
         parser = PlainText()
         parser.feed(text)
-        clean = " ".join(parser.parts).strip()
+        parser.close()
+        clean = "".join(parser.parts).strip()
         if clean == text:
             break
         text = clean

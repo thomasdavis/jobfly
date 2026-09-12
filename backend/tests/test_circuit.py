@@ -109,3 +109,6 @@ def test_nested_html_becomes_readable_text_before_neural_encoding():
     assert plain_description("&lt;p&gt;Build &lt;strong&gt;great&lt;/strong&gt; software&lt;/p&gt;") == "Build  great  software"
     text = "C++ engineering, research & development."
     assert plain_description(plain_description(text)) == plain_description(text)
+    text = "R&D, learning &growth; and AT&T."
+    assert plain_description(text) == text
+    assert plain_description(plain_description(text)) == text

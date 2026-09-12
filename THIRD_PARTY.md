@@ -17,7 +17,9 @@ adapter. These modifications are not part of the anatomical dataset and are not
 biologically validated. The Three.js visualizations are original to Jobfly.
 
 JSON Resume API and schema: [jsonresume/jsonresume.org](https://github.com/jsonresume/jsonresume.org).
-All bundled job examples and companies are fictional.
+Production jobs are fetched from JSON Resume and [Arbeitnow](https://www.arbeitnow.com/blog/job-board-api); every listing links to its source. There are no fictional jobs in the product. Unit tests use isolated fixtures.
+
+The local text encoder is [sentence-transformers/all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2), published under Apache 2.0. FastEmbed loads Qdrant’s ONNX export. Model weights are downloaded separately and are not included in this repository.
 
 Three.js is MIT licensed; React is MIT licensed; Lucide icons are ISC licensed.
 Instrument Serif and DM Sans are available under the SIL Open Font License.
