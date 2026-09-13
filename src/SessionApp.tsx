@@ -132,13 +132,13 @@ export default function SessionApp() {
     if (!chosen) return false;
     setBusy(true);
     try {
-      const result = await api<{ changed: number }>("feedback", {
+      await api<{ changed: number }>("feedback", {
         jobId: chosen.id,
         reward,
         reason,
       });
       setMessage(
-        `${reward > 0 ? "A good find." : "Noted."} ${result.changed.toLocaleString()} connections updated. Your reason is saved${llm ? " for the interpreter" : ""}.`,
+        `${reward > 0 ? "A good find." : "Noted."} Each fly will experience this feedback and learn separately. Your reason is saved.`,
       );
       return true;
     } catch (e) {
@@ -251,8 +251,9 @@ export default function SessionApp() {
               Feedback is optional and never stops the swarm.
             </p>
             <p>
-              The flies take turns using one full connectome and share learned
-              connections. Neural activity is decoded by an artificial readout;
+              Each fly has its own continuous brain activity, random stream, learned
+              connections and decoder. They share read-only anatomical data and
+              communicate job observations. Neural activity uses an engineered readout;
               this is an experiment, not a validated career adviser. The world
               runs while this session is open. Job availability is set by the
               employer. Optional written feedback is saved; the LLM interpreter
@@ -348,6 +349,14 @@ export default function SessionApp() {
                   {state?.running ? "LIVE" : "STANDBY"}
                 </span>
               </div>
+              <label className="fly-inspector">
+                Inspect fly
+                <select aria-label="Inspect fly" value={state?.ecosystem?.activeFly ?? 0}
+                  disabled={!ready || busy}
+                  onChange={(event) => void action("control", { action: "inspect", fly: Number(event.target.value) })}>
+                  {(state?.swarm || []).map((fly) => <option key={fly.id} value={fly.id}>Fly {fly.id + 1}</option>)}
+                </select>
+              </label>
               {tab === "habitat" && <Brain data={brain} state={state} />}
               <div className="brain-legend">
                 <span>
@@ -362,11 +371,11 @@ export default function SessionApp() {
               </div>
               <div className="neural-facts">
                 <div>
-                  <span>Neurons in simulation</span>
+                  <span>Neurons per brain</span>
                   <strong>{brain?.neurons.toLocaleString() || "—"}</strong>
                 </div>
                 <div>
-                  <span>Connections</span>
+                  <span>Connections per brain</span>
                   <strong>
                     {brain
                       ? (brain.connections / 1e6).toFixed(2) + " million"
@@ -428,7 +437,7 @@ export default function SessionApp() {
                 </div>
                 <p>
                   {state?.updates
-                    ? "Your feedback is saved."
+                    ? `${state.ecosystem?.feedback?.at(-1)?.completed.length || 0} / 24 flies have processed your latest feedback.`
                     : "React to any job, whenever you want."}
                 </p>
               </div>
@@ -436,7 +445,9 @@ export default function SessionApp() {
                 {brain?.mapped.toLocaleString() || "—"} mapped positions ·
                 {tab === "brain" ? "spikes sampled" : "compact view sampled"}
                 <br />
-                {state?.stepMs || "—"} ms / step · CPU simulation
+                {state?.stepMs || "—"} ms / world step · 24 brains
+                <br />
+                {state?.swarm?.[state?.ecosystem?.activeFly ?? 0]?.brainSteps?.toLocaleString() || 0} steps · {state?.swarm?.[state?.ecosystem?.activeFly ?? 0]?.learningUpdates || 0} lessons for this fly
               </div>
             </aside>
           </div>
@@ -615,8 +626,7 @@ export default function SessionApp() {
             </label>
             <p>
               {state?.activeNeurons.toLocaleString() || 0} neurons have fired ·{" "}
-              {state?.decoderSamples || 0} learned examples · full network
-              shared across {state?.swarm?.length || 24} flies.
+              {state?.decoderSamples || 0} learned examples in this fly · {state?.swarm?.length || 24} independent brains.
             </p>
           </section>
         )}

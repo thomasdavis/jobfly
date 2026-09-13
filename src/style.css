@@ -1948,3 +1948,6 @@ textarea:focus-visible {
     flex-basis: 100%;
   }
 }
+
+.fly-inspector { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin: 1rem 0; font-size: .8rem; }
+.fly-inspector select { font: inherit; color: inherit; background: white; border: 1px solid #d2cfe2; border-radius: .35rem; padding: .45rem .6rem; }

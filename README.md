@@ -11,8 +11,10 @@ revisit promising patches, land, linger, and carry on. **Worth a look** stays qu
 for at least two minutes of simulation and only surfaces jobs checked by three
 or more flies. No feedback is required to keep the ecosystem moving.
 
-The habitat and neural HUD are built with **Three.js**. The simulation uses all
-**166,700 neurons and 25,582,938 connections** in fly.ai's MaleCNS model.
+The habitat and neural HUD are built with **Three.js**. Every fly independently simulates all **166,700 neurons and 25,582,938
+connections** in fly.ai's MaleCNS model: **24 brains**, or 4,000,800 neuron
+states. They share read-only anatomy, never voltage, spike history, random streams,
+learned weights, or fitted job decoders.
 
 ## What you can do
 
@@ -20,7 +22,7 @@ The habitat and neural HUD are built with **Three.js**. The simulation uses all
 - Review and edit the resulting `resume.json`, then download it or start searching.
 - Get a unique `/s/<random-token>` URL that restores your resume, jobs, and learning in another browser.
 - Explore real job listings in Three.js; open the source posting and inspect the brain HUD.
-- Like or pass on any job, whenever you want. The feedback changes existing learning-circuit connections.
+- Like or pass on any job, whenever you want. Each fly receives the feedback as its own sensory/reward event and updates its own existing learning-circuit connections.
 - Keep notes and export liked jobs. No applications are submitted and no employers are contacted.
 
 There are no bundled example jobs and no arbitrary job-import endpoint.
@@ -75,7 +77,7 @@ Session links contain 192-bit random tokens. **Anyone with a link can read the
 resume and update that session.** Keep links private; there is no account login.
 Each session has append-only SQLite checkpoints under `JOBFLY_STATE`. Immutable, compressed catalog/vector objects are reused between checkpoints. Public job embeddings are cached across sessions; resumes are not shared.
 Responses are not cached, session pages are marked noindex, referrers are suppressed,
-and application access logging is disabled. Server restarts preserve session URLs.
+and application access logging is disabled. Checkpoints retain each brain's voltages, spikes, RNG state, learned weight overlays, readout, body, unfinished measurements, matched controls, and pending feedback. Server restarts restore these states and session URLs.
 The home page does not allocate a brain or load Three.js.
 
 ### Document conversion
@@ -104,7 +106,7 @@ The public deployment leaves this disabled unless deliberately configured.
 Responses use the official OpenAI SDK's schema-validated Pydantic output.
 No free-text JSON scraping or hardcoded keyword classification is used.
 Written reasons are saved immediately but only influence sensory encoding
-when the interpreter is explicitly run. Likes/dislikes train immediately.
+when the interpreter is explicitly run. Likes/dislikes queue teaching events immediately; each individual processes them through its own circuit. The HUD reports completion.
 
 ## How the brain participates
 
@@ -125,35 +127,43 @@ flowchart LR
   P --> B
 ```
 
-- **Full circuit:** 166,700 LIF neurons, 25,582,938 signed connections, 20 ms
-  steps. Candidate measurements use matched 32-step recurrent windows, reset
-  between windows. This retains recurrence within each window, not continuous
-  lifetime membrane state.
-- **Swarm:** 24 separate bodies, attention queues, dwell timers and histories
-  take turns using **one full network per session**. Shared learned weights and
-  different sensory gains support collective exploration. This is explicitly
-  time-multiplexed computation, not 24 simultaneously integrated brains.
-- **Senses:** locally cached MiniLM embeddings encode overlapping description
-  chunks. A fixed projection drives 53 actual ORN populations upstream of the
-  mushroom body. Directly injected neurons are excluded from candidate readout.
-  The resume is measured through the same circuit as the initial reference.
-- **Decision:** all non-injected populations contribute to a fixed 512-dimensional
-  response projection. An artificial kernel readout learns optional user ratings.
-  Text similarity, distances, feed rank, and averaged synaptic factors do not
-  enter that readout. Exploration scheduling uses novelty, nearby jobs, and
-  recruitment to jobs with strong measured responses.
-- **Movement:** an explicit body decoder reads 1,314 descending neurons after
-  retinal and LC10a feature stimulation. Turn, speed and braking depend on actual
-  neural responses; there is no constant-speed fallback or forced landing.
-  Calibration is engineered supervision of a virtual body, not biological proof.
-- **Learning:** measured stimulus-excess KC activity, MBON activity and actual
-  PAM/PPL1 spikes reaching MBONs through existing edges gate a bounded update.
-  Signs/topology remain intact. Optional ratings also train the explicit readout.
-- **Patience:** suggestions require elapsed observation time and at least three
-  distinct flies. These are repeated algorithmic observations, not independent
-  statistical evidence of suitability. Landing never pauses the whole swarm.
+- **Full circuit per fly:** 166,700 LIF neurons, 25,582,938 signed connections,
+  20 ms steps. All 24 brains advance once per world step, including resting flies.
+  Operating brains never reset between jobs, turns, observations, or feedback.
+- **Independent state:** each fly has its own voltages, spikes, RNG stream, learned
+  synaptic overlay, job readout, eligibility/measurement traces and body. The common
+  anatomical matrix is immutable; each effective matrix is `W_i = W_base + delta_i`.
+  This avoids storing identical anatomical constants 24 times. It does not couple
+  the simulations. Numerical equivalence is checked against explicit weight copies.
+- **Senses:** local MiniLM embeddings encode overlapping job-description chunks.
+  A fixed projection drives 53 actual ORN populations. Each individual experiences
+  the resume through its own circuit. Directly injected neurons cannot contribute
+  to its job-response readout.
+- **Matched controls:** for every resume/job/visual observation, a temporary control
+  starts from that individual's exact state and RNG and advances without the
+  stimulus. Stimulated minus unstimulated population activity isolates the response
+  from ongoing noise. The actual fly retains its continuous state. Controls are
+  experimental comparisons, not additional visible flies or replacement brains.
+- **Decision:** an engineered 512-dimensional population projection and private
+  kernel decoder turn each fly's measured responses into job preferences. User
+  ratings fit that fly's own decoder. Coverage, proximity and communicated job
+  observations schedule exploration; they are engineered behavior, not discoveries
+  of biological swarm intelligence. Consensus averages each observer's latest value.
+- **Movement:** an engineered readout of 1,314 descending neurons produces turn,
+  speed and brake commands. A separate calibration specimen supplies the same fixed
+  virtual-body decoder to every fly. It uses continuous activity and matched visual
+  controls, never job labels. Body geometry converts commands into movement.
+- **Learning:** likes/passes are queued separately for each individual. Each fly
+  experiences the job, then a 12-step PAM/PPL1 input. Measured KC, MBON and modulator
+  activity gates that fly's bounded existing-edge update. Weights and fitted job
+  decoders are never copied between flies. Learning completion is asynchronous.
+- **Patience:** suggestions require at least 120 actual simulated seconds and
+  observations from three different brains. Shared anatomy, encoders and experience
+  can correlate their decisions; this is not a statistical confidence estimate.
+  Simulation can run substantially slower than wall time on a CPU.
 - **Causal controls:** Brain offers no wiring, no smell, no mushroom body,
-  no vision, and no motor interventions. Learning is blocked during interventions.
+  no vision and no motor interventions. They preserve neural history and weights,
+  discard measurements spanning different conditions, and suspend teaching.
 - **HUD:** the expanded view renders all 140,638 measured positions. The compact
   HUD samples every sixth position plus all activity in each packet; at most 3,500
   mapped active neurons are sampled per packet. Unmapped neurons still simulate.
@@ -164,6 +174,8 @@ The native named forward-walking cells were silent in probes; using a calibrated
 broader descending population is disclosed instead of hiding a constant motor.
 The model has unusually high baseline KC activity, so responses are baseline-subtracted;
 it should not be described as reproducing natural sparse mushroom-body physiology.
+Independent brains improve simulation correctness; they do not establish that
+this model is a good job recommender.
 
 Related primary work: [Shiu et al., Nature 2024](https://www.nature.com/articles/s41586-024-07763-9)
 validated particular sensorimotor predictions in a different FlyWire model;
@@ -171,6 +183,11 @@ validated particular sensorimotor predictions in a different FlyWire model;
 cell-type-specific dopamine learning. Neither validates Jobfly's adapters.
 
 ## Verification
+
+See [the scientific protocol](docs/SCIENTIFIC-PROTOCOL.md) for the exact claims,
+controls, and boundaries. Version 3 results below are historical and do not
+validate the new 24-brain model.
+
 
 The [recorded full-model experiment](docs/neural-evidence.json) moved all 24 flies,
 made six landings, and surfaced an unrated suggestion after 240 simulated seconds.
@@ -200,7 +217,7 @@ read-only at `/brain`, local embedding model at `/embeddings`, and persistent se
 the Quadlet. The provided origin binds to `127.0.0.1:8788`; Caddy serves
 `fly.jsonresume.org` with automatic TLS and unbuffered SSE.
 
-Two resident brains maximum; disconnected sessions can be evicted and reload
+Two resident sessions (48 independent brains) maximum; disconnected sessions can be evicted and reload
 their saved learning. The Quadlet limits the service to 3 GB RAM and two CPU
 cores worth of time. This is a small experimental deployment, not a horizontally
 scaled service. `/healthz` checks model-file presence; a moving simulation must

@@ -7,8 +7,15 @@ import numpy as np
 
 
 class RewardPlasticity:
-    def __init__(self, brain):
+    def __init__(self, brain, anatomy=None):
         self.brain = brain
+        if anatomy is not None:
+            for name in ("kc", "mbon", "edges", "owners", "posts", "original", "modulators"):
+                setattr(self, name, getattr(anatomy, name))
+            self.factors = np.ones(len(self.edges), np.float32)
+            self.eligibility = np.zeros(len(self.kc), np.float32)
+            self.updates = self.changed = 0
+            return
         self.kc = np.flatnonzero(np.char.startswith(brain.cell_type, "KC"))
         self.mbon = np.flatnonzero(np.char.startswith(brain.cell_type, "MBON"))
         if not len(self.kc) or not len(self.mbon):
@@ -36,6 +43,13 @@ class RewardPlasticity:
         if not len(edges):
             raise ValueError("No KC → MBON edges resolved; learning cannot start.")
 
+    def _apply(self):
+        values = self.original * self.factors
+        if hasattr(self.brain, "set_plastic_weights"):
+            self.brain.set_plastic_weights(self.edges, values)
+        else:
+            self.brain.weights[self.edges] = values
+
     def observe(self, fired):
         self.eligibility *= .96
         self.eligibility += np.isin(self.kc, fired).astype(np.float32) * .04
@@ -51,7 +65,7 @@ class RewardPlasticity:
                 raise ValueError("Invalid reward gate.")
             eligibility *= np.clip(gate, 0, 1)
         self.factors = np.clip(self.factors + .22 * value * eligibility, .25, 2)
-        self.brain.weights[self.edges] = self.original * self.factors
+        self._apply()
         self.changed = int(np.count_nonzero(np.abs(self.factors - previous) > 1e-7))
         self.updates += 1
         return self.changed
@@ -81,5 +95,5 @@ class RewardPlasticity:
         if factors.shape != self.factors.shape or not np.isfinite(factors).all():
             raise ValueError("Saved plasticity does not match this connectome.")
         self.factors = np.clip(factors, .25, 2)
-        self.brain.weights[self.edges] = self.original * self.factors
+        self._apply()
         self.updates = updates

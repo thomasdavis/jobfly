@@ -59,6 +59,6 @@ class SessionPool:
         for engine, _ in self.engines.values():
             engine.stopped = True
         for engine, _ in self.engines.values():
-            engine.thread.join(timeout=4)
+            engine.thread.join(timeout=30)
             if not engine.thread.is_alive():
                 engine.store.db.close()

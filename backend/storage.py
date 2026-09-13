@@ -28,7 +28,7 @@ class Store:
             if not obj:
                 raise ValueError("A saved session object is missing.")
             data = json.loads(zlib.decompress(obj[0]))
-            if path == "vectors":
+            if path in ("vectors", "ecosystem"):
                 payload["neural"][path] = data
             else:
                 payload[path] = data
@@ -42,8 +42,8 @@ class Store:
             payload = dict(payload)
             payload["neural"] = dict(payload.get("neural", {}))
             references = {}
-            for path in ("jobs", "vectors", "factors"):
-                parent = payload["neural"] if path == "vectors" else payload
+            for path in ("jobs", "vectors", "factors", "ecosystem"):
+                parent = payload["neural"] if path in ("vectors", "ecosystem") else payload
                 if path not in parent:
                     continue
                 encoded = json.dumps(parent.pop(path), separators=(",", ":")).encode()

@@ -49,6 +49,10 @@ export interface State {
     landed: string | null;
     motor: number[];
     active: boolean;
+    brainSteps: number;
+    activeNeurons: number;
+    learningUpdates: number;
+    pendingFeedback: number;
   }[];
   ecosystem: {
     explored: number;
@@ -58,6 +62,8 @@ export interface State {
     recommendations: string[];
     activeFly: number;
     sharedBrain: boolean;
+    independentBrains: number;
+    feedback: { id: number; completed: number[]; changed: number }[];
     activity: Record<
       string,
       {

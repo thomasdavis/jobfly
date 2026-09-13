@@ -48,9 +48,10 @@ def test_shortlist_requires_time_and_several_flies_not_one_landing():
     feature = swarm.decoder.initial.copy()
     swarm.features = {"a": feature, "b": feature}
     swarm.active = 0
+    swarm.feedback_events = []
     swarm.observations = {
-        "a": dict(visits=3, flies=[0, 1, 2], first=10, last=90, landings=0),
-        "b": dict(visits=20, flies=[0], first=10, last=90, landings=20),
+        "a": dict(visits=3, flies=[0, 1, 2], first=10, last=90, landings=0, value=.2),
+        "b": dict(visits=20, flies=[0], first=10, last=90, landings=20, value=.2),
     }
     swarm.elapsed = 90
     assert swarm.summary()["recommendations"] == []
@@ -60,7 +61,8 @@ def test_shortlist_requires_time_and_several_flies_not_one_landing():
 
 def test_silenced_experiments_cannot_train_on_feedback():
     swarm = object.__new__(SwarmPolicy)
-    swarm.brain = SimpleNamespace(intervention="no_wiring")
+    swarm.active = 0
+    swarm.flies = [SimpleNamespace(brain=SimpleNamespace(intervention="no_wiring"))]
     with pytest.raises(ValueError, match="intact"):
         swarm.reward("a", 1)
 

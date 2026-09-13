@@ -35,7 +35,7 @@ def health():
     model = Path(os.getenv("FLY_DATA", "/mnt/donto-data/donto-resources/research/jobfly-runtime/brain"))
     present = (model / "weights.npz").exists() and (model / "brain.npz").exists()
     return JSONResponse({"service": "jobfly", "model_files": present,
-                         "build": os.getenv("JOBFLY_BUILD_SHA", "development"), "policyVersion": 3}, status_code=200 if present else 503)
+                         "build": os.getenv("JOBFLY_BUILD_SHA", "development"), "policyVersion": 4}, status_code=200 if present else 503)
 
 
 @app.middleware("http")
@@ -111,6 +111,7 @@ class Control(BaseModel):
     action: str
     jobId: str | None = None
     intervention: str | None = None
+    fly: int | None = Field(default=None, ge=0, lt=24)
 
 
 @app.post("/api/control")
@@ -132,6 +133,9 @@ def control(body: Control, engine: SessionEngine):
             if body.jobId not in ids:
                 raise HTTPException(404, "Job not found.")
             engine.focus(body.jobId)
+        elif body.action == "inspect":
+            if body.fly is not None:
+                engine.policy.active = body.fly
         elif body.action == "intervention":
             from .circuit import INTERVENTIONS
             if body.intervention not in INTERVENTIONS:

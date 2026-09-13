@@ -49,8 +49,6 @@ class Engine:
                 self.reasons = saved.get("reasons", {})
                 self.resume = saved.get("resume")
                 self.source = saved.get("source", "jsonresume")
-                if "factors" in saved:
-                    self.plastic.restore(saved["factors"], saved["updates"])
                 neural = saved.get("neural", {})
                 if self.resume and self.source != "example" and len(self.jobs) < 500 and neural.get("version", 0) < 3:
                     self.loading_stage = "Opening the larger job catalog"
@@ -63,6 +61,14 @@ class Engine:
                 if self.source == "example":
                     self.jobs, self.resume = [], None
             self._encode(neural)
+            if neural.get("ecosystem", {}).get("version") != 4:
+                # Preserve old explicit preferences as separate sensory teaching
+                # events. Never pretend the old shared weight state was individual.
+                for key, mark in self.marks.items():
+                    if any(j["id"] == key for j in self.jobs):
+                        self.policy.reward(key, 1 if mark == "liked" else -1)
+                if saved:
+                    self.policy.updates = max(self.policy.updates, int(saved.get("updates", 0)))
             self._map()
             self.status = "ready"
             self.persist()
@@ -131,9 +137,9 @@ class Engine:
     def _advance(self):
         frame = []
         started = time.perf_counter()
-        for _ in range(5):
+        for _ in range(1):
             frame.extend(self.policy.tick(self.learning_enabled, self.marks).tolist())
-        self.step_ms = (time.perf_counter() - started) * 200
+        self.step_ms = (time.perf_counter() - started) * 1000
         if self.policy.checkpoint_due:
             self.persist()
             self.policy.checkpoint_due = False
@@ -160,13 +166,13 @@ class Engine:
                         motor=[p.turn, p.speed, p.brake] if p else [0, 0, 0],
                         drive=[max(0, -getattr(p, "direction", 0)), max(0, getattr(p, "direction", 0))],
                         stepMs=round(self.step_ms, 2), elapsed=round(p.elapsed, 2) if p else 0,
-                        revision=self.revision, source=self.source, updates=self.plastic.updates if ready else 0,
-                        changed=self.plastic.changed if ready else 0, landings=p.landings if p else 0,
+                        revision=self.revision, source=self.source, updates=p.updates if ready else 0,
+                        changed=p.changed if ready else 0, landings=p.landings if p else 0,
                         learning=self.learning_enabled and bool(p and p.brain.intervention == "intact"), marks=self.marks,
                         preferences={key: round(p.decoder.predict(value), 5) for key, value in p.features.items()} if p else {},
                         phase=p.phase if p else "loading", scan=dict(done=p.cursor, total=len(p.queue)) if p else None,
-                        evidence=p.evidence if p else {}, intervention=self.brain.intervention if p else "intact",
-                        activeNeurons=int(self.brain.ever_active.sum()) if p else 0,
+                        evidence=p.evidence if p else {}, intervention=p.brain.intervention if p else "intact",
+                        activeNeurons=int(p.brain.ever_active.sum()) if p else 0,
                         inputNeurons=len(p.senses.driven) if p else 0,
                         decoderSamples=len(p.decoder.samples) if p else 0,
                         calibration=p.motor_decoder.calibration if p else None,
@@ -177,7 +183,7 @@ class Engine:
     def persist(self, feedback=None):
         p = self.policy
         self.store.save(dict(jobs=self.jobs, marks=self.marks, reasons=self.reasons, resume=self.resume,
-                             source=self.source, factors=self.plastic.factors.tolist(), updates=self.plastic.updates,
+                             source=self.source, updates=p.updates,
                              neural=dict(version=NeuralPolicy.version, inputDigest=self.input_digest,
                                          vectors=self.vectors.tolist(), samples=p.decoder.samples, ecosystem=p.checkpoint())), feedback)
 

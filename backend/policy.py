@@ -15,14 +15,15 @@ from .senses import Sensorium
 class NeuralPolicy:
     version = 2
 
-    def __init__(self, brain, plastic, jobs, vectors, samples=None, shared=None):
+    def __init__(self, brain, plastic, jobs, vectors, samples=None, shared=None, motor=None, continuous=False):
+        self.continuous = continuous
         self.brain, self.plastic, self.jobs = brain, plastic, jobs
         self.senses = shared.senses if shared else Sensorium(brain, vectors)
         self.project = shared.project if shared else ActivityProjection(brain, self.senses.driven)
         self.decoder = shared.decoder if shared else ActivityReadout()
         if samples:
             self.decoder.restore(samples)
-        self.motor_decoder = shared.motor_decoder if shared else MotorDecoder(brain, self.senses)
+        self.motor_decoder = motor if motor is not None else (shared.motor_decoder if shared else MotorDecoder(brain, self.senses))
         self.baseline = self.motor_decoder.baseline.copy()
         self.evidence, self.features, self.records = {}, {}, {}
         self.cooldowns = {}
@@ -41,7 +42,8 @@ class NeuralPolicy:
     def _window(self):
         # Matched initial states and noise make each candidate measurement
         # reproducible. Recurrence unfolds within the full 640 ms window.
-        self.brain.reset(64)
+        if not self.continuous:
+            self.brain.reset(64)
         self.counts = np.zeros(self.brain.n, np.float32)
         self.window_step = 0
 
@@ -104,14 +106,19 @@ class NeuralPolicy:
                     self.phase = "no_response"
                 else:
                     self.target = max(responsive, key=lambda i: self.evidence[self.jobs[i]["id"]]["value"])
-                    self.phase = "moving"
+                    self.phase = "motor_baseline" if self.continuous else "moving"
                     self.decision = dict(jobId=self.jobs[self.target]["id"], elapsed=round(self.elapsed, 2),
                                          intervention=self.brain.intervention, evidence=dict(self.evidence))
                     self.history.append(self.decision)
                     self.history = self.history[-20:]
+            elif self.continuous:
+                self.phase = "baseline"
+        elif self.phase == "motor_baseline":
+            self.baseline = self.counts.copy()
+            self.phase = "moving"
         elif self.phase == "moving":
             self.turn, self.speed, self.brake = self.motor_decoder.decode(self.counts, self.baseline)
-            dt = STEPS * self.brain.dt
+            dt = STEPS * self.brain.dt * (2 if self.continuous else 1)
             self.fly["heading"] += self.turn * 2.2 * dt
             distance = self.speed * 2.3 * dt
             self.fly["x"] += math.sin(self.fly["heading"]) * distance
@@ -125,6 +132,8 @@ class NeuralPolicy:
                 self.landed = job["id"]
                 self.landings += 1
                 self.phase = "landed"
+            elif self.continuous:
+                self.phase = "motor_baseline"
         self._window()
         return fired
 

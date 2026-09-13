@@ -1,5 +1,8 @@
 """Whole-connectome activity, causal interventions, and activity-only readouts."""
+import copy
 import numpy as np
+from scipy import sparse
+from .vendor.fly_ai.fly_brain import _propagate
 
 from .vendor.fly_ai.fly_brain import FlyBrain
 
@@ -14,6 +17,55 @@ class CircuitBrain(FlyBrain):
         self.ever_active = np.zeros(self.n, bool)
         self.last_active = np.empty(0, np.int64)
 
+    def fork(self, seed):
+        """Independent dynamic state; only immutable anatomy/base weights alias.
+
+        Private sparse weight deltas are mathematically W_i = W_0 + delta_i.
+        No fly can mutate W_0, or another fly's voltage, RNG, spikes or delta.
+        """
+        child = copy.copy(self)
+        for name in ("indptr", "indices", "weights", "cell_type", "superclass", "side",
+                     "visual", "azimuth", "positions"):
+            value = getattr(self, name, None)
+            if isinstance(value, np.ndarray):
+                value.flags.writeable = False
+        child.silenced = self.silenced.copy()
+        child.ever_active = np.zeros(self.n, bool)
+        child.last_active = np.empty(0, np.int64)
+        child.delta = None
+        child.reset(seed)
+        return child
+
+    def counterfactual(self):
+        """A matched control, never a replacement/reset of the live individual."""
+        child = copy.copy(self)
+        for name in ("v", "fired", "silenced", "ever_active", "last_active"):
+            setattr(child, name, getattr(self, name).copy())
+        child.rng = np.random.default_rng()
+        child.rng.bit_generator.state = copy.deepcopy(self.rng.bit_generator.state)
+        if getattr(self, "delta", None) is not None:
+            child.delta = self.delta.copy()
+        return child
+
+    def set_plastic_weights(self, edges, values):
+        if not hasattr(self, "delta"):
+            self.weights[edges] = values
+            return
+        if np.array_equal(values, self.weights[edges]):
+            self.delta = None
+            return
+        if self.delta is None:
+            owners = np.searchsorted(self.indptr, edges, side="right") - 1
+            self.delta = sparse.csc_matrix((np.zeros(len(edges), np.float32),
+                                           (self.indices[edges], owners)), shape=(self.n, self.n))
+            # CSC canonical sorting may reorder edges: retain an explicit map.
+            self.delta_sources = np.repeat(np.arange(self.n), np.diff(self.delta.indptr))
+            positions = {(int(src), int(dst)): i for i, (src, dst) in
+                         enumerate(zip(self.delta_sources, self.delta.indices))}
+            self.delta_order = np.array([positions[(int(src), int(dst))]
+                                         for src, dst in zip(owners, self.indices[edges])])
+        self.delta.data[self.delta_order] = values - self.weights[edges]
+
     def intervene(self, name):
         if name not in INTERVENTIONS:
             raise ValueError("Unknown circuit intervention.")
@@ -27,12 +79,16 @@ class CircuitBrain(FlyBrain):
             self.silenced = np.isin(self.superclass, ["ol_sensory", "ol_intrinsic", "visual_projection", "visual_centrifugal"])
         elif name == "no_motor":
             self.silenced = np.isin(self.superclass, ["descending_neuron", "vnc_motor", "cb_motor"])
-        self.reset(64)
+        # Interventions change the circuit without erasing its dynamical history.
 
     def synaptic_input(self, fired):
         if self.intervention == "no_wiring":
             return np.zeros_like(self.v)
-        return super().synaptic_input(fired)
+        current = super().synaptic_input(fired)
+        if getattr(self, "delta", None) is not None:
+            current[:, 0] += _propagate(self.delta.indptr, self.delta.indices,
+                                        self.delta.data, fired, self.n)
+        return current
 
     def step(self, **kwargs):
         self.v[self.silenced] = 0
