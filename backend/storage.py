@@ -32,7 +32,38 @@ class Store:
                 payload["neural"][path] = data
             else:
                 payload[path] = data
+        if "ecosystem" in payload.get("neural", {}):
+            payload["neural"]["ecosystem"] = self._resolve_arrays(payload["neural"]["ecosystem"])
         return payload
+
+    def _resolve_arrays(self, value, cache=None):
+        cache = {} if cache is None else cache
+        if isinstance(value, dict):
+            if "__stored_array__" in value:
+                digest = value["__stored_array__"]
+                if digest not in cache:
+                    row = self.db.execute("SELECT payload FROM objects WHERE digest=?", (digest,)).fetchone()
+                    if not row:
+                        raise ValueError("A saved neural array is missing")
+                    cache[digest] = json.loads(zlib.decompress(row[0]))
+                return cache[digest]
+            return {k: self._resolve_arrays(v, cache) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._resolve_arrays(v, cache) for v in value]
+        return value
+
+    def _store_arrays(self, value):
+        if isinstance(value, dict):
+            if "__array__" in value:
+                encoded = json.dumps(value, separators=(",", ":")).encode()
+                digest = hashlib.sha256(encoded).hexdigest()
+                if not self.db.execute("SELECT 1 FROM objects WHERE digest=?", (digest,)).fetchone():
+                    self.db.execute("INSERT INTO objects VALUES (?,?)", (digest, zlib.compress(encoded, 1)))
+                return {"__stored_array__": digest}
+            return {k: self._store_arrays(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._store_arrays(v) for v in value]
+        return value
 
     def save(self, payload, feedback=None):
         # Feedback and resulting checkpoint commit together. Append-only history.
@@ -41,6 +72,8 @@ class Store:
             # megabytes of unchanged jobs every minute. Old snapshots still load.
             payload = dict(payload)
             payload["neural"] = dict(payload.get("neural", {}))
+            if "ecosystem" in payload["neural"]:
+                payload["neural"]["ecosystem"] = self._store_arrays(payload["neural"]["ecosystem"])
             references = {}
             for path in ("jobs", "vectors", "factors", "ecosystem"):
                 parent = payload["neural"] if path in ("vectors", "ecosystem") else payload
@@ -49,7 +82,7 @@ class Store:
                 encoded = json.dumps(parent.pop(path), separators=(",", ":")).encode()
                 digest = hashlib.sha256(encoded).hexdigest()
                 if not self.db.execute("SELECT 1 FROM objects WHERE digest=?", (digest,)).fetchone():
-                    self.db.execute("INSERT INTO objects VALUES (?,?)", (digest, zlib.compress(encoded)))
+                    self.db.execute("INSERT INTO objects VALUES (?,?)", (digest, zlib.compress(encoded, 1)))
                 references[path] = digest
             payload["_storage"] = references
             self.db.execute("INSERT INTO snapshots(payload) VALUES (?)", (json.dumps(payload),))

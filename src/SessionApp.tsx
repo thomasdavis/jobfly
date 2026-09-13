@@ -484,7 +484,7 @@ export default function SessionApp() {
                               : "Not the right fit.")}
                         </p>
                         <small>
-                          {h.changed.toLocaleString()} connections changed ·{" "}
+                          Feedback saved ·{" "}
                           {h.created}
                         </small>
                       </div>

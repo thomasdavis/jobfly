@@ -15,19 +15,16 @@ from backend.circuit import CircuitBrain, ActivityProjection
 from backend.learning import RewardPlasticity
 from backend.motor import MotorDecoder, measure, paired_measure
 from backend.senses import Sensorium
-from backend.storage import Store
+from experiment_inputs import load_inputs
 
-root = Path("/mnt/donto-data/donto-resources/research/jobfly-independent-v4")
+root = Path(os.getenv("JOBFLY_EXPERIMENT_DIR", "/mnt/donto-data/donto-resources/research/jobfly-independent-v4"))
 root.mkdir(parents=True, exist_ok=True)
-store = Store(Path("/mnt/donto-data/donto-resources/research/jobfly-neural-v2/integration-state"))
-saved = store.latest()
-store.db.close()
-vectors = np.asarray(saved["neural"]["vectors"], np.float32)
+inputs, vectors = load_inputs()
 source_hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in Path("backend").glob("*.py")}
 b = CircuitBrain(device="cpu")
 p = RewardPlasticity(b)
 motor = MotorDecoder(b, Sensorium(b, vectors), continuous=True)
-report = dict(protocol="continuous-v4", neurons=b.n, connections=len(b.weights), calibration=motor.calibration)
+report = dict(protocol="continuous-v4", inputVectorsSHA256=inputs["vectorsSHA256"], modelSignature=b.signature(), neurons=b.n, connections=len(b.weights), calibration=motor.calibration)
 # Independent trials; never resetting between baseline and visual stimulation.
 movement = []
 for seed in (301, 509, 701):

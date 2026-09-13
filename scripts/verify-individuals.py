@@ -15,14 +15,12 @@ from backend.circuit import CircuitBrain
 from backend.learning import RewardPlasticity
 from backend.storage import Store
 from backend.swarm import SwarmPolicy
+from experiment_inputs import load_inputs
 
-root = Path("/mnt/donto-data/donto-resources/research/jobfly-independent-v4")
+root = Path(os.getenv("JOBFLY_EXPERIMENT_DIR", "/mnt/donto-data/donto-resources/research/jobfly-independent-v4"))
 root.mkdir(parents=True, exist_ok=True)
-store = Store(Path("/mnt/donto-data/donto-resources/research/jobfly-neural-v2/integration-state"))
-data = store.latest()
-store.db.close()
-jobs = data["jobs"]
-vectors = np.asarray(data["neural"]["vectors"], np.float32)
+inputs, vectors = load_inputs()
+jobs = inputs["jobs"]
 assert len(jobs) > 1000 and all(j.get("url", "").startswith("http") for j in jobs)
 source_hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in Path("backend").glob("*.py")}
 start = time.monotonic()
@@ -45,7 +43,7 @@ for tick in range(limit):
         moved = sum(np.hypot(f.fly["x"] - p["x"], f.fly["z"] - p["z"]) > .01 for f, p in zip(swarm.flies, initial))
         report = dict(steps=tick + 1, elapsed=swarm.elapsed, wallSeconds=round(time.monotonic() - start, 2),
                       maxRSSMB=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024,
-                      sourceHashes=source_hashes, jobs=len(jobs), moved=int(moved), landings=swarm.landings, explored=summary["explored"],
+                      sourceHashes=source_hashes, inputVectorsSHA256=inputs["vectorsSHA256"], modelSignature=swarm.model_signature, jobs=len(jobs), moved=int(moved), landings=swarm.landings, explored=summary["explored"],
                       recommendations=summary["recommendations"], ratings=swarm.updates,
                       uniqueVoltages=len({hashlib.sha256(f.brain.v.tobytes()).hexdigest() for f in swarm.flies}),
                       flies=swarm.public_flies())
@@ -59,7 +57,7 @@ assert swarm.summary()["recommendations"] and swarm.updates == 0
 # Save exact pre-feedback state for independent reproducibility and replay tests.
 checkpoint = swarm.checkpoint()
 out = Store(root / "experiment-state")
-out.save(dict(jobs=jobs, resume=data["resume"], marks={}, reasons={}, source=data["source"],
+out.save(dict(jobs=jobs, resumeSource=inputs["resumeSource"], marks={}, reasons={}, source="arbeitnow",
               neural=dict(vectors=vectors.tolist(), ecosystem=checkpoint)))
 out.db.close()
 print("AUTONOMOUS PASS; checkpoint saved", flush=True)

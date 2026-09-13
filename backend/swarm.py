@@ -125,7 +125,8 @@ class SwarmPolicy:
                 event = next(e for e in self.feedback_events if e["id"] == fly.last_reward["ticket"])
                 event["completed"].append(i)
                 event["changed"] += fly.plastic.changed
-                self.checkpoint_due = True
+                if len(event["completed"]) == self.count:
+                    self.checkpoint_due = True
                 self._round(fly)
         self.steps += 1
         self.elapsed = next_time

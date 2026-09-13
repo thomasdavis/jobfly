@@ -120,3 +120,30 @@ def test_disconnected_circuit_has_no_stimulus_response_but_keeps_ticking():
     assert {f.brain.steps for f in s.flies} == {400}
     assert s.summary()["explored"] == 0
     assert all(not f.evidence or all(e["response"] == 0 for e in f.evidence.values()) for f in s.flies)
+
+
+def test_lossless_array_encoding_preserves_dtype_and_signed_zero(tmp_path):
+    from backend.checkpoint import pack, unpack
+    from backend.storage import Store
+    for array in (np.arange(129, dtype=np.float32), np.array([0., -0., 1.], np.float32), np.array([-2., .125], np.float32)):
+        restored = unpack(pack(array))
+        assert restored.dtype == array.dtype and restored.tobytes() == array.tobytes()
+    original = np.arange(100, dtype=np.float32)
+    store = Store(tmp_path)
+    payload = dict(neural=dict(ecosystem=pack(dict(a=original, b=original.copy()))))
+    store.save(payload)
+    count = store.db.execute("SELECT count(*) FROM objects").fetchone()[0]
+    store.save(payload)
+    assert store.db.execute("SELECT count(*) FROM objects").fetchone()[0] == count
+    result = unpack(store.latest()["neural"]["ecosystem"])
+    assert not np.shares_memory(result["a"], result["b"])
+    result["a"][0] = 9
+    assert result["b"][0] == 0
+    store.db.close()
+
+
+def test_model_fingerprint_detects_dynamics_changes():
+    b = circuit()
+    before = b.signature()
+    b.tonic += .001
+    assert b.signature() != before
