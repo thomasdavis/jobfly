@@ -14,6 +14,7 @@ class SwarmPolicy:
     settle_seconds = 120
 
     def __init__(self, brain, plastic, jobs, vectors, samples=None, radius=8, saved=None):
+        self.model_signature = brain.signature()
         self.jobs, self.radius = jobs, radius
         self.rng = np.random.default_rng(390)
         self.elapsed = 0.
@@ -40,6 +41,8 @@ class SwarmPolicy:
             self._round(fly)
             fly.phase = "warmup"
         if saved and saved.get("version") == self.version:
+            if saved.get("modelSignature") != self.model_signature:
+                raise ValueError("Checkpoint anatomy or simulation parameters do not match")
             state = unpack(saved["world"])
             self.rng.bit_generator.state = state.pop("rng")
             for key, value in state.items():
@@ -153,7 +156,7 @@ class SwarmPolicy:
                     feedback=[dict(e) for e in self.feedback_events[-10:]])
 
     def checkpoint(self):
-        return dict(version=self.version,
+        return dict(version=self.version, modelSignature=self.model_signature,
                     world=pack(dict(elapsed=self.elapsed, steps=self.steps, active=self.active,
                                     observations=self.observations, landings=self.landings, updates=self.updates,
                                     changed=self.changed, feedback_events=self.feedback_events,

@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import os
 from contextlib import asynccontextmanager
@@ -77,6 +78,20 @@ def ready(engine):
 @app.get("/api/state")
 def state(engine: SessionEngine):
     return engine.snapshot()
+
+
+@app.get("/api/diagnostics")
+def diagnostics(engine: SessionEngine):
+    ready(engine)
+    with engine.lock:
+        p = engine.policy
+        digest = lambda value: hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        return dict(policyVersion=p.version, modelSignature=p.model_signature, worldSteps=p.steps,
+                    elapsed=p.elapsed, sharedMutableBrain=False,
+                    neuronsPerBrain=p.brain.n, connectionsPerBrain=len(p.brain.weights),
+                    checkpointDigest=digest(p.checkpoint()),
+                    brains=[dict(id=i, steps=f.brain.steps, stateDigest=digest(f.checkpoint()),
+                                 learningUpdates=f.plastic.updates) for i, f in enumerate(p.flies)])
 
 
 @app.get("/api/brain")

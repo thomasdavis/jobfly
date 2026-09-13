@@ -1,5 +1,7 @@
 """Whole-connectome activity, causal interventions, and activity-only readouts."""
 import copy
+import hashlib
+import json
 import numpy as np
 from scipy import sparse
 from .vendor.fly_ai.fly_brain import _propagate
@@ -16,6 +18,16 @@ class CircuitBrain(FlyBrain):
         self.silenced = np.zeros(self.n, bool)
         self.ever_active = np.zeros(self.n, bool)
         self.last_active = np.empty(0, np.int64)
+
+    def signature(self):
+        digest = hashlib.sha256()
+        for key in ("indptr", "indices", "weights", "cell_type", "superclass", "side", "visual", "azimuth"):
+            array = getattr(self, key)
+            digest.update(str(array.dtype).encode())
+            digest.update(array.tobytes())
+        digest.update(json.dumps({key: getattr(self, key) for key in
+                                  ("dt", "tau", "gain", "tonic", "noise_hz", "noise_amp", "eye_gain")}, sort_keys=True).encode())
+        return digest.hexdigest()
 
     def fork(self, seed):
         """Independent dynamic state; only immutable anatomy/base weights alias.
